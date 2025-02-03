@@ -5,9 +5,14 @@ import './App.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  
+  // Added Tailwind test heading
 
   return (
     <>
+      <h1 className="text-3xl font-bold underline mb-8">
+        Hello world!
+      </h1>
       <div>
         <a href="https://vite.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />

@@ -1,11 +1,18 @@
 import { useSearchParams, Link } from 'react-router-dom'
 import YouTube from 'react-youtube'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+
+interface TranscriptSegment {
+  text: string;
+  start: number;
+  duration: number;
+}
 
 export default function TranscriptPage() {
   const [searchParams] = useSearchParams()
   const videoId = searchParams.get('v')
-  const [transcript, setTranscript] = useState<any[]>([])
+  const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
+  const playerRef = useRef<any>(null)
 
   useEffect(() => {
     const fetchTranscript = async () => {
@@ -69,6 +76,9 @@ export default function TranscriptPage() {
                     },
                   }}
                   className="w-full"
+                  onReady={(event) => {
+                    playerRef.current = event.target;
+                  }}
                 />
             </div>
             
@@ -90,13 +100,25 @@ export default function TranscriptPage() {
             </div>
             
             {/* Transcript content */}
-            <div className="p-4 lg:p-6">
+            <div className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">
               {transcript.length === 0 ? (
                 <p className="text-gray-600">Loading transcript...</p>
               ) : (
-                <pre className="whitespace-pre-wrap">
-                  {JSON.stringify(transcript, null, 2)}
-                </pre>
+                <div className="space-y-2">
+                  {transcript.map((segment, index) => (
+                    <p
+                      key={index}
+                      onClick={() => {
+                        if (playerRef.current) {
+                          playerRef.current.seekTo(segment.start);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors"
+                    >
+                      {segment.text}
+                    </p>
+                  ))}
+                </div>
               )}
             </div>
           </div>

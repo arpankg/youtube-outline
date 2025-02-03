@@ -39,6 +39,8 @@ async def get_transcript(request: TranscriptRequest):
     try:
         # Extract video ID from URL
         video_id = extract_video_id(request.url)
+        print(f"Received request for video URL: {request.url} (ID: {video_id})")
+        
         if not video_id:
             raise HTTPException(status_code=400, detail="Invalid YouTube URL")
             

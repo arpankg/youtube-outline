@@ -5,13 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // Expose to all network interfaces
-    strictPort: true,
-    hmr: {
-      clientPort: 443 // Fix for ngrok HTTPS tunneling
-    },
-    // Allow all hosts - only use during development
-    cors: true,
-    proxy: {}, // Add any proxy configurations if needed
-  },
+    host: '0.0.0.0',
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      '.ngrok-free.app',
+      '.ngrok.io'
+    ]
+  }
 })

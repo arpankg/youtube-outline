@@ -41,7 +41,8 @@ export default function TranscriptPage() {
       }
 
       const data = await response.json()
-      console.log('Received transcript data:', {
+      console.log('Full transcript data:', data.transcript)
+      console.log('Transcript stats:', {
         length: data.transcript?.length || 0,
         firstItem: data.transcript?.[0],
         lastItem: data.transcript?.[data.transcript?.length - 1]
@@ -113,9 +114,12 @@ export default function TranscriptPage() {
                           playerRef.current.seekTo(segment.start);
                         }
                       }}
-                      className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors"
+                      className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
                     >
-                      {segment.text}
+                      <span className="text-gray-500 whitespace-nowrap">
+                        [{Math.floor(segment.start)}s - {Math.floor(segment.start + segment.duration)}s]
+                      </span>
+                      <span>{segment.text}</span>
                     </p>
                   ))}
                 </div>

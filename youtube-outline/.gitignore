@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 # Python FastAPI Server
+.env
 fastapi-venv/
 server/fastapi-venv/
 __pycache__/

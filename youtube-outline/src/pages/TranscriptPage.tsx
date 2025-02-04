@@ -108,13 +108,27 @@ export default function TranscriptPage() {
                         if (activeSegmentRef.current !== -1) {
                           segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
                         }
-                      } else if (activeSegmentRef.current < transcript.length - 1 && 
-                          transcript[activeSegmentRef.current + 1].start <= currentTime) {
-                        // Remove red from current
-                        segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
-                        // Move to next and add red
-                        activeSegmentRef.current++;
-                        segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
+                      } else {
+                        const currentSegmentStart = transcript[activeSegmentRef.current].start;
+                        
+                        // If time jumped significantly (more than 2 segments ahead/behind)
+                        if (Math.abs(currentTime - currentSegmentStart) > 2) {
+                          // Remove current highlight
+                          segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
+                          // Binary search for new position
+                          activeSegmentRef.current = findInitialSegment(currentTime);
+                          // Add highlight to new position
+                          segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
+                        } 
+                        // Normal linear increment
+                        else if (activeSegmentRef.current < transcript.length - 1 && 
+                            transcript[activeSegmentRef.current + 1].start <= currentTime) {
+                          // Remove red from current
+                          segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
+                          // Move to next and add red
+                          activeSegmentRef.current++;
+                          segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
+                        }
                       }
                     }, 100);
                     

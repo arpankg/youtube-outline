@@ -193,10 +193,18 @@ export default function TranscriptPage() {
           </div>
           
           <div className="lg:w-1/2 bg-white lg:shadow-sm lg:rounded-lg">
-            <div className="hidden lg:block p-6 border-b">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Transcript for Video: {videoId}
-              </h1>
+            <div className="block p-4 border-b">
+              <div className="container mx-auto px-2">
+                <div className="flex space-x-4">
+                  <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Transcript View
+                  </button>
+                  <button className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    Outline View
+                  </button>
+                </div>
+                <h1 className="text-2xl font-bold mt-2">Transcript for Video: {videoId}</h1>
+              </div>
             </div>
             
             <div className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">

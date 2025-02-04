@@ -8,6 +8,12 @@ interface TranscriptSegment {
   duration: number;
 }
 
+const formatTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 export default function TranscriptPage() {
   const [searchParams] = useSearchParams()
   const videoId = searchParams.get('v')
@@ -210,7 +216,7 @@ export default function TranscriptPage() {
                       className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
                     >
                       <span className="text-gray-500 whitespace-nowrap">
-                        [{Math.floor(segment.start)}s - {Math.floor(segment.start + segment.duration)}s]
+                        [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
                       </span>
                       <span>{segment.text}</span>
                     </p>

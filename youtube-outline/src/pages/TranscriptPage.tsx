@@ -8,6 +8,11 @@ interface TranscriptSegment {
   duration: number;
 }
 
+interface OutlineSegment {
+  text: string;
+  start: number;
+}
+
 const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
@@ -18,6 +23,9 @@ export default function TranscriptPage() {
   const [searchParams] = useSearchParams()
   const videoId = searchParams.get('v')
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
+  const [outline, setOutline] = useState<OutlineSegment[]>([])
+  const [currentView, setCurrentView] = useState<'transcript' | 'outline'>('transcript')
+  const [isLoadingOutline, setIsLoadingOutline] = useState(false)
   const playerRef = useRef<any>(null)
   const activeSegmentRef = useRef<number>(-1)
   const segmentElementsRef = useRef<(HTMLElement | null)[]>([])
@@ -102,6 +110,43 @@ export default function TranscriptPage() {
     }
   };
 
+  const fetchOutline = async () => {
+    if (!transcript.length) return;
+    
+    setIsLoadingOutline(true);
+    try {
+      const response = await fetch('http://localhost:8000/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcript: transcript
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Error generating outline:', response.status, response.statusText);
+        return;
+      }
+      
+      const data = await response.json();
+      setOutline(data.transcript || []);
+    } catch (error) {
+      console.error('Error generating outline:', error);
+    } finally {
+      setIsLoadingOutline(false);
+    }
+  };
+
+  const calculateDuration = (segments: OutlineSegment[], index: number): number => {
+    if (index === segments.length - 1) {
+      // For the last segment, use a default duration of 10 seconds
+      return 10;
+    }
+    return segments[index + 1].start - segments[index].start;
+  };
+
   useEffect(() => {
     return () => stopHighlightInterval();
   }, []);
@@ -151,21 +196,21 @@ export default function TranscriptPage() {
   }, [videoId])
 
   return (
-    <div className="min-h-screen bg-gray-100 lg:py-6">
-      <div className="max-w-screen-2xl mx-auto lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:gap-6">
-          <div className="lg:w-1/2">
-            <div className="w-full">
+    <div id="transcript-page-container" className="min-h-screen bg-gray-100 lg:py-6">
+      <div id="content-wrapper" className="mx-auto lg:px-8 overflow-hidden">
+        <div id="layout-container" className="flex flex-col md:flex-row gap-6 h-screen md:h-auto max-h-screen">
+          <div id="video-section" className="flex-none md:flex-1">
+            <div id="video-player-container" className="w-full">
                 <YouTube 
                   videoId={videoId || ''}
                   opts={{
                     width: '100%',
-                    height: '240',
+                    height: '100%',
                     playerVars: {
                       autoplay: 0,
                     },
                   }}
-                  className="w-full"
+                  className="w-full aspect-video"
                   onReady={(event) => {
                     console.log('[YouTube] Player ready event received');
                     playerRef.current = event.target;
@@ -185,51 +230,101 @@ export default function TranscriptPage() {
                 />
             </div>
             
-            <div className="p-4 bg-white lg:hidden">
+            <div id="mobile-video-info" className="p-4 bg-white lg:hidden">
               <h1 className="text-lg font-bold text-gray-900">
                 Video: {videoId}
               </h1>
             </div>
           </div>
           
-          <div className="lg:w-1/2 bg-white lg:shadow-sm lg:rounded-lg">
-            <div className="block p-4 border-b">
+          <div id="transcript-sidebar" className="w-full lg:w-[600px] bg-white shadow-sm rounded-lg flex-1 max-h-100 lg:flex-none">
+            <div id="view-toggle-section" className="block p-4 border-b">
               <div className="container mx-auto px-2">
-                <div className="flex space-x-4">
-                  <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <div id="toggle-buttons" className="flex space-x-4">
+                  <button 
+                    id="transcript-view-button"
+                    className={`px-4 py-2 ${currentView === 'transcript' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
+                    onClick={() => setCurrentView('transcript')}
+                  >
                     Transcript View
                   </button>
-                  <button className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                  <button 
+                    id="outline-view-button"
+                    className={`px-4 py-2 ${currentView === 'outline' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
+                    onClick={() => {
+                      setCurrentView('outline');
+                      if (!outline.length) {
+                        fetchOutline();
+                      }
+                    }}
+                  >
                     Outline View
                   </button>
                 </div>
-                <h1 className="text-2xl font-bold mt-2">Transcript for Video: {videoId}</h1>
+                <h1 className="text-2xl font-bold mt-2">
+                  {currentView === 'transcript' ? 'Transcript' : 'Outline'} for Video: {videoId}
+                </h1>
               </div>
             </div>
             
-            <div className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">
-              {transcript.length === 0 ? (
-                <p className="text-gray-600">Loading transcript...</p>
+            <div id="content-view-container" className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">
+              {currentView === 'transcript' ? (
+                transcript.length === 0 ? (
+                  <p id="transcript-loading" className="text-gray-600">Loading transcript...</p>
+                ) : (
+                  <div id="transcript-content" className="space-y-2">
+                    {transcript.map((segment, index) => (
+                      <p
+                        key={index}
+                        id={`transcript-segment-${index}`}
+                        ref={el => segmentElementsRef.current[index] = el}
+                        onClick={() => {
+                          if (playerRef.current) {
+                            playerRef.current.seekTo(segment.start);
+                          }
+                        }}
+                        className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
+                      >
+                        <span className="text-gray-500 whitespace-nowrap">
+                          [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
+                        </span>
+                        <span>{segment.text}</span>
+                      </p>
+                    ))}
+                  </div>
+                )
               ) : (
-                <div className="space-y-2">
-                  {transcript.map((segment, index) => (
-                    <p
-                      key={index}
-                      ref={el => segmentElementsRef.current[index] = el}
-                      onClick={() => {
-                        if (playerRef.current) {
-                          playerRef.current.seekTo(segment.start);
-                        }
-                      }}
-                      className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
-                    >
-                      <span className="text-gray-500 whitespace-nowrap">
-                        [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
-                      </span>
-                      <span>{segment.text}</span>
-                    </p>
-                  ))}
-                </div>
+                isLoadingOutline ? (
+                  <p id="outline-loading" className="text-gray-600">Generating outline...</p>
+                ) : outline.length === 0 ? (
+                  <p id="outline-empty" className="text-gray-600">No outline available</p>
+                ) : (
+                  <div id="outline-content" className="space-y-6">
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-semibold">Main Points</h2>
+                      {outline.map((segment, index) => {
+                        const duration = calculateDuration(outline, index);
+                        return (
+                          <p
+                            key={index}
+                            id={`outline-segment-${index}`}
+                            onClick={() => {
+                              if (playerRef.current) {
+                                playerRef.current.seekTo(segment.start);
+                              }
+                            }}
+                            className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
+                          >
+                            <span className="text-gray-500 whitespace-nowrap">
+                              [{formatTime(segment.start)} - {formatTime(segment.start + duration)}]
+                            </span>
+                            <span>{segment.text}</span>
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </div>

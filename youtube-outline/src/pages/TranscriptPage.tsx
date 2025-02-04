@@ -13,6 +13,26 @@ export default function TranscriptPage() {
   const videoId = searchParams.get('v')
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
   const playerRef = useRef<any>(null)
+  const activeSegmentRef = useRef<number>(-1)
+  const segmentElementsRef = useRef<(HTMLElement | null)[]>([])
+
+  const findInitialSegment = (time: number): number => {
+    let left = 0;
+    let right = transcript.length - 1;
+    
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      if (transcript[mid].start <= time && (mid === transcript.length - 1 || transcript[mid + 1].start > time)) {
+        return mid;
+      }
+      if (transcript[mid].start > time) {
+        right = mid - 1;
+      } else {
+        left = mid + 1;
+      }
+    }
+    return -1;
+  }
 
   useEffect(() => {
     const fetchTranscript = async () => {
@@ -79,6 +99,26 @@ export default function TranscriptPage() {
                   className="w-full"
                   onReady={(event) => {
                     playerRef.current = event.target;
+                    
+                    const interval = setInterval(() => {
+                      const currentTime = playerRef.current.getCurrentTime();
+                      
+                      if (activeSegmentRef.current === -1) {
+                        activeSegmentRef.current = findInitialSegment(currentTime);
+                        if (activeSegmentRef.current !== -1) {
+                          segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
+                        }
+                      } else if (activeSegmentRef.current < transcript.length - 1 && 
+                          transcript[activeSegmentRef.current + 1].start <= currentTime) {
+                        // Remove red from current
+                        segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
+                        // Move to next and add red
+                        activeSegmentRef.current++;
+                        segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
+                      }
+                    }, 100);
+                    
+                    return () => clearInterval(interval);
                   }}
                 />
             </div>
@@ -109,6 +149,7 @@ export default function TranscriptPage() {
                   {transcript.map((segment, index) => (
                     <p
                       key={index}
+                      ref={el => segmentElementsRef.current[index] = el}
                       onClick={() => {
                         if (playerRef.current) {
                           playerRef.current.seekTo(segment.start);

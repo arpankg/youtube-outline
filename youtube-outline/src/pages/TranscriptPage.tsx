@@ -190,7 +190,7 @@ export default function TranscriptPage() {
     
     setIsLoadingOutline(true);
     try {
-      const response = await fetch('http://localhost:8000/generate-summary', {
+      const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/generate-summary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -230,7 +230,7 @@ export default function TranscriptPage() {
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`
         console.log('Fetching transcript for YouTube URL:', youtubeUrl)
         
-        const response = await fetch('http://localhost:8000/transcript', {
+        const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/transcript`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import re
 import logging
+from pprint import pformat
 
 # Load environment variables from the root directory
 env_path = Path(__file__).parents[2] / '.env'
@@ -28,6 +29,14 @@ class OutlinePoint(BaseModel):
 
 class OutlineResponse(BaseModel):
     points: List[OutlinePoint]
+
+class FinalizedOutlinePoint(BaseModel):
+    text: str
+    start: float
+    duration: float
+
+class FinalizedOutlineResponse(BaseModel):
+    points: List[FinalizedOutlinePoint]
 
 app = FastAPI(
     title="YouTube Outline API",
@@ -100,35 +109,49 @@ async def generate_summary(transcript: dict):
         logger.info(f"Processed transcript length: {len(text_content)} characters")
     
 
-        # Generate summary using the LLM
+        # Generate summary using the LLM with structured output
         logger.info("Sending request to OpenAI API...")
-        prompt = f"""Given a YouTube video transcript with timestamps, create a concise outline of the main points.
+        chain = llm.with_structured_output(OutlineResponse)
+        result = chain.invoke(
+            f"""Given a YouTube video transcript with timestamps, create a concise outline of the main points.
             Each point should include the exact timestamp from the original transcript where that point begins.
-            
-            Format your response as a JSON array where each item has 'text' and 'start' fields.
-            The 'text' field should be a string describing the point.
-            The 'start' field should be a number indicating the timestamp in seconds.
-            
-            Example format:
-            [
-                {{"text": "Introduction to the topic", "start": 0.0}},
-                {{"text": "First main point discussed", "start": 45.2}},
-                {{"text": "Second main point with example", "start": 128.5}}
-            ]
             
             Transcript with timestamps:
             {text_content}
             
-            Extract main points that capture the key moments and ideas from the video (there should be at least 1 for every 5 minutes of the video but potentially more). Use the exact timestamps from the transcript.
-            
-            Remember to respond ONLY with the JSON array, no additional text or explanation.
+            Extract main points that capture the key moments and ideas from the video. Use the exact timestamps from the transcript.
+            Create at least 1 point for every 5 minutes of content, but include more if there are important points to cover.
             """
-        logger.info(f"Prompt being sent to OpenAI:\n{prompt}")
-        result = llm.invoke(
-            prompt)
+        )
         
-        logger.info(f"Generated {result} points")
-        return {"outline": result}
+        logger.info(f"LLM Response:\n{pformat(result.dict(), indent=2)}")
+
+        # Convert to finalized points with durations
+        points = result.points
+        transcript_entries = transcript.get('transcript', [])
+        finalized_points = []
+
+        for i in range(len(points)):
+            point = points[i]
+            duration = 0.0
+            
+            if i < len(points) - 1:
+                # Duration is until next point
+                duration = points[i + 1].start - point.start
+            else:
+                # For last point, duration is until end of transcript
+                last_entry = transcript_entries[-1]
+                duration = (last_entry['start'] + last_entry.get('duration', 0)) - point.start
+            
+            finalized_points.append(FinalizedOutlinePoint(
+                text=point.text,
+                start=point.start,
+                duration=duration
+            ))
+
+        final_response = FinalizedOutlineResponse(points=finalized_points)
+        logger.info(f"Finalized response with durations:\n{pformat(final_response.dict(), indent=2)}")
+        return final_response
         
     except Exception as e:
         logger.error(f"Error generating summary: {str(e)}")

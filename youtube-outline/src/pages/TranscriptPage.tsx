@@ -1,5 +1,5 @@
-import { useSearchParams, Link } from 'react-router-dom'
-import YouTube from 'react-youtube'
+import { useSearchParams } from 'react-router-dom'
+import YouTube, { YouTubeEvent, YouTubePlayer } from 'react-youtube'
 import { useEffect, useState, useRef } from 'react'
 import { TranscriptSegment, OutlineSegment } from '../types/types'
 import { formatTime } from '../utils/utils'
@@ -50,7 +50,6 @@ interface OutlineViewProps {
 }
 
 const OutlineView: React.FC<OutlineViewProps> = ({
-  transcript,
   playerRef,
   outline,
   isLoadingOutline,
@@ -278,11 +277,11 @@ export default function TranscriptPage() {
                     },
                   }}
                   className="w-full aspect-video"
-                  onReady={(event) => {
+                  onReady={(event: YouTubeEvent<YouTubePlayer>) => {
                     console.log('[YouTube] Player ready event received');
                     playerRef.current = event.target;
                   }}
-                  onStateChange={(event) => {
+                  onStateChange={(event: YouTubeEvent<YouTubePlayer>) => {
                     const playerState = event.data;
                     console.log('[YouTube] Player state changed to:', playerState);
                     

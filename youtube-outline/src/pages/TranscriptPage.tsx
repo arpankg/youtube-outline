@@ -11,6 +11,7 @@ interface TranscriptSegment {
 interface OutlineSegment {
   text: string;
   start: number;
+  duration: number;
 }
 
 const formatTime = (seconds: number): string => {
@@ -131,20 +132,12 @@ export default function TranscriptPage() {
       }
       
       const data = await response.json();
-      setOutline(data.transcript || []);
+      setOutline(data.points || []);
     } catch (error) {
       console.error('Error generating outline:', error);
     } finally {
       setIsLoadingOutline(false);
     }
-  };
-
-  const calculateDuration = (segments: OutlineSegment[], index: number): number => {
-    if (index === segments.length - 1) {
-      // For the last segment, use a default duration of 10 seconds
-      return 10;
-    }
-    return segments[index + 1].start - segments[index].start;
   };
 
   useEffect(() => {
@@ -303,7 +296,6 @@ export default function TranscriptPage() {
                     <div className="space-y-2">
                       <h2 className="text-xl font-semibold">Main Points</h2>
                       {outline.map((segment, index) => {
-                        const duration = calculateDuration(outline, index);
                         return (
                           <p
                             key={index}
@@ -316,7 +308,7 @@ export default function TranscriptPage() {
                             className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
                           >
                             <span className="text-gray-500 whitespace-nowrap">
-                              [{formatTime(segment.start)} - {formatTime(segment.start + duration)}]
+                              [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
                             </span>
                             <span>{segment.text}</span>
                           </p>

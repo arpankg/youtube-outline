@@ -70,6 +70,9 @@ class FinalizedOutlinePoint(BaseModel):
 class FinalizedOutlineResponse(BaseModel):
     points: List[FinalizedOutlinePoint]
 
+# Get port from environment variable for Render deployment
+port = int(os.getenv('PORT', 8000))
+
 app = FastAPI(
     title="YouTube Outline API",
     description="API for YouTube video outline generation",

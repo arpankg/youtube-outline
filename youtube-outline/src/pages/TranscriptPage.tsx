@@ -1,24 +1,8 @@
 import { useSearchParams, Link } from 'react-router-dom'
 import YouTube from 'react-youtube'
 import { useEffect, useState, useRef } from 'react'
-
-interface TranscriptSegment {
-  text: string;
-  start: number;
-  duration: number;
-}
-
-interface OutlineSegment {
-  text: string;
-  start: number;
-  duration: number;
-}
-
-const formatTime = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-};
+import { TranscriptSegment, OutlineSegment } from '../types/types'
+import { formatTime } from '../utils/utils'
 
 export default function TranscriptPage() {
   const [searchParams] = useSearchParams()

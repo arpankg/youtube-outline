@@ -20,6 +20,38 @@ load_dotenv(env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Define the prompt template for chapter generation
+CHAPTER_GENERATION_PROMPT = """I have a transcript of a YouTube video provided by the YouTube API. Each transcript entry includes a start time, a duration, and the text spoken. Your task is to analyze this transcript and generate a list of chapters that cover all the important topics discussed in the video. Please follow these guidelines:
+
+1. **Identify Natural Breaks:**  
+   Analyze the transcript to pinpoint natural breakpoints—moments where the speaker transitions to a new subject or introduces a distinct topic. Use these points as the beginnings of new chapters.
+
+2. **Cover All Major Topics:**  
+   Ensure that every significant topic or section discussed in the video is represented by its own chapter. Avoid including chapters for minor pauses or insignificant changes in the discussion.
+
+3. **Chapter Titles:**  
+   For each chapter, create a concise and descriptive title that clearly reflects the subject or theme of that segment. The title should be intuitive and informative for viewers.
+
+4. **Timestamps:**  
+   Use the start times from the transcript entries to determine when each chapter begins. These timestamps will mark the exact moment in the video where the topic change occurs.
+
+**Additional Considerations:**
+
+- **Granularity:**  
+  Avoid over-segmentation. Only select chapters for significant shifts in content rather than for every minor pause or change in tone.
+
+- **Consistency:**  
+  Maintain a consistent style and tone across all chapter titles. Ensure that they are easy to understand and reflect the overall structure of the video.
+
+- **Accuracy:**  
+  Double-check that the chapter titles accurately capture the essence of the topics discussed, and that the timestamps precisely match the transcript's start times for those segments.
+
+Using these instructions, please analyze the provided transcript and generate the chapter list for the video. 
+
+{text_content}
+
+"""
+
 class TranscriptRequest(BaseModel):
     url: str
 
@@ -112,17 +144,7 @@ async def generate_summary(transcript: dict):
         # Generate summary using the LLM with structured output
         logger.info("Sending request to OpenAI API...")
         chain = llm.with_structured_output(OutlineResponse)
-        result = chain.invoke(
-            f"""Given a YouTube video transcript with timestamps, create a concise outline of the main points.
-            Each point should include the exact timestamp from the original transcript where that point begins.
-            
-            Transcript with timestamps:
-            {text_content}
-            
-            Extract main points that capture the key moments and ideas from the video. Use the exact timestamps from the transcript.
-            Create at least 1 point for every 5 minutes of content, but include more if there are important points to cover.
-            """
-        )
+        result = chain.invoke(CHAPTER_GENERATION_PROMPT.format(text_content=text_content))
         
         logger.info(f"LLM Response:\n{pformat(result.dict(), indent=2)}")
 

@@ -32,6 +32,14 @@ describe('parseYouTubeUrl', () => {
     })
   })
 
+  it('parses shortened URL with playlist', () => {
+    const result = parseYouTubeUrl('https://youtu.be/lZ3bPUKo5zc?list=PLUl4u3cNGP61-9PEhRognw5vryrSEVLPr')
+    expect(result).toEqual({
+      videoId: 'lZ3bPUKo5zc',
+      playlistId: 'PLUl4u3cNGP61-9PEhRognw5vryrSEVLPr'
+    })
+  })
+
   it('handles invalid inputs', () => {
     expect(parseYouTubeUrl('')).toBeNull()
     expect(parseYouTubeUrl('https://example.com')).toBeNull()

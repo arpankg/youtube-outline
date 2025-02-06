@@ -12,7 +12,7 @@ interface YouTubeUrlInfo {
   playlistId?: string;
 }
 
-/**
+/**``````````````````````````````````````````
  * Parses various formats of YouTube URLs and extracts video information
  * @param url The YouTube URL to parse
  * @returns YouTubeUrlInfo object if successful, null if invalid URL
@@ -34,7 +34,11 @@ export function parseYouTubeUrl(url: string): YouTubeUrlInfo | null {
 
     const parsed = urlParser.parse(url.trim());
     
-    console.log('Parsed YouTube URL:', JSON.stringify(parsed, null, 2));
+    // Test parsing a youtu.be URL with playlist
+    console.log('Test URL parsing:', {
+      original: urlParser.parse('https://youtu.be/lZ3bPUKo5zc?list=PLUl4u3cNGP61-9PEhRognw5vryrSEVLPr'),
+      current: parsed
+    });
     
     // Validate it's a YouTube URL and has a video ID
     if (!parsed || parsed.provider !== 'youtube' || !parsed.id) {

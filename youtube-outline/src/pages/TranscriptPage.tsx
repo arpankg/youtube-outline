@@ -5,6 +5,7 @@ import { TranscriptSegment, OutlineSegment } from '../types/types'
 import { formatTime, parseYouTubeUrl } from '../utils/utils'
 import TranscriptContent from '../components/TranscriptContent'
 import OutlineView from '../components/OutlineView'
+import ChatView from '../components/ChatView'
 
 
 
@@ -17,7 +18,7 @@ export default function TranscriptPage() {
   const videoId = parsedUrl?.videoId
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
   const [outline, setOutline] = useState<OutlineSegment[]>([])
-  const [currentView, setCurrentView] = useState<'transcript' | 'outline'>('transcript')
+  const [currentView, setCurrentView] = useState<'transcript' | 'outline' | 'chat'>('transcript')
   const [isLoadingOutline, setIsLoadingOutline] = useState(false)
   const playerRef = useRef<any>(null)
   const activeSegmentRef = useRef<number>(-1)
@@ -245,9 +246,16 @@ export default function TranscriptPage() {
                   >
                     Outline View
                   </button>
+                  <button 
+                    id="chat-view-button"
+                    className={`px-4 py-2 ${currentView === 'chat' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
+                    onClick={() => setCurrentView('chat')}
+                  >
+                    Chat View
+                  </button>
                 </div>
                 <h1 className="text-2xl font-bold mt-2">
-                  {currentView === 'transcript' ? 'Transcript' : 'Outline'} for Video: {videoId}
+                  {currentView === 'transcript' ? 'Transcript' : currentView === 'outline' ? 'Outline' : 'Chat'} for Video: {videoId}
                 </h1>
               </div>
             </div>
@@ -259,13 +267,17 @@ export default function TranscriptPage() {
                   segmentElementsRef={segmentElementsRef}
                   playerRef={playerRef}
                 />
-              ) : (
+              ) : currentView === 'outline' ? (
                 <OutlineView
                   transcript={transcript}
                   playerRef={playerRef}
                   outline={outline}
                   isLoadingOutline={isLoadingOutline}
                   onGenerateOutline={fetchOutline}
+                />
+              ) : (
+                <ChatView
+                  playerRef={playerRef}
                 />
               )}
             </div>

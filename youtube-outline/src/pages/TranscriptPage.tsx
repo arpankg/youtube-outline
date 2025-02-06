@@ -2,100 +2,19 @@ import { useSearchParams } from 'react-router-dom'
 import YouTube, { YouTubeEvent, YouTubePlayer } from 'react-youtube'
 import { useEffect, useState, useRef } from 'react'
 import { TranscriptSegment, OutlineSegment } from '../types/types'
-import { formatTime } from '../utils/utils'
+import { formatTime, parseYouTubeUrl } from '../utils/utils'
+import TranscriptContent from '../components/TranscriptContent'
+import OutlineView from '../components/OutlineView'
 
-interface TranscriptContentProps {
-  transcript: TranscriptSegment[]
-  segmentElementsRef: React.MutableRefObject<(HTMLElement | null)[]>
-  playerRef: React.MutableRefObject<any>
-}
 
-const TranscriptContent: React.FC<TranscriptContentProps> = ({
-  transcript,
-  segmentElementsRef,
-  playerRef,
-}) => {
-  return transcript.length === 0 ? (
-    <p id="transcript-loading" className="text-gray-600">Loading transcript...</p>
-  ) : (
-    <div id="transcript-content" className="space-y-2">
-      {transcript.map((segment, index) => (
-        <p
-          key={index}
-          id={`transcript-segment-${index}`}
-          ref={el => segmentElementsRef.current[index] = el}
-          onClick={() => {
-            if (playerRef.current) {
-              playerRef.current.seekTo(segment.start);
-            }
-          }}
-          className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
-        >
-          <span className="text-gray-500 whitespace-nowrap">
-            [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
-          </span>
-          <span>{segment.text}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
 
-interface OutlineViewProps {
-  transcript: TranscriptSegment[]
-  playerRef: React.MutableRefObject<any>
-  outline: OutlineSegment[]
-  isLoadingOutline: boolean
-  onGenerateOutline: () => Promise<void>
-}
 
-const OutlineView: React.FC<OutlineViewProps> = ({
-  playerRef,
-  outline,
-  isLoadingOutline,
-  onGenerateOutline
-}) => {
-  useEffect(() => {
-    if (outline.length === 0) {
-      onGenerateOutline();
-    }
-  }, [outline.length, onGenerateOutline]);
-
-  return isLoadingOutline ? (
-    <p id="outline-loading" className="text-gray-600">Generating outline...</p>
-  ) : outline.length === 0 ? (
-    <p id="outline-empty" className="text-gray-600">No outline available</p>
-  ) : (
-    <div id="outline-content" className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold">Main Points</h2>
-        {outline.map((segment, index) => {
-          return (
-            <p
-              key={index}
-              id={`outline-segment-${index}`}
-              onClick={() => {
-                if (playerRef.current) {
-                  playerRef.current.seekTo(segment.start);
-                }
-              }}
-              className="cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex gap-2"
-            >
-              <span className="text-gray-500 whitespace-nowrap">
-                [{formatTime(segment.start)} - {formatTime(segment.start + segment.duration)}]
-              </span>
-              <span>{segment.text}</span>
-            </p>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 export default function TranscriptPage() {
   const [searchParams] = useSearchParams()
-  const videoId = searchParams.get('v')
+  const url = searchParams.toString() ? `https://youtube.com/watch?${searchParams.toString()}` : ''
+  const parsedUrl = parseYouTubeUrl(url)
+  const videoId = parsedUrl?.videoId
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
   const [outline, setOutline] = useState<OutlineSegment[]>([])
   const [currentView, setCurrentView] = useState<'transcript' | 'outline'>('transcript')

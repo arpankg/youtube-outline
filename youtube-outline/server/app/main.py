@@ -4,13 +4,16 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api import TranscriptsDisabled, NoTranscriptFound
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
-from typing import List
+from typing import List, Optional, Dict
 import os
 from dotenv import load_dotenv
 from pathlib import Path
 import re
 import logging
 from pprint import pformat
+from .rag.vector_db import VectorDB
+from .chat_transcript import generate_chat_response
+import asyncio
 
 # Load environment variables from the root directory
 env_path = Path(__file__).parents[2] / '.env'
@@ -70,6 +73,10 @@ class FinalizedOutlinePoint(BaseModel):
 class FinalizedOutlineResponse(BaseModel):
     points: List[FinalizedOutlinePoint]
 
+class VectorDBUpload(BaseModel):
+    text: str
+    metadata: dict = None
+
 # Get port from environment variable for Render deployment
 port = int(os.getenv('PORT', 8000))
 
@@ -82,10 +89,10 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["http://localhost:5173"],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 def extract_video_id(url: str) -> str:
@@ -124,6 +131,12 @@ async def get_transcript(request: TranscriptRequest):
         logger.debug(f"Fetching transcript for video ID: {video_id}")
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
+        
+        # Upload transcript to vector db asynchronously
+        vector_db = VectorDB()
+        asyncio.create_task(vector_db.upload_transcript(transcript, video_id))  # Properly schedule the coroutine
+        logger.info(f"Started async upload to vector db for video ID: {video_id}")
+        
         return {"transcript": transcript}
         
     except (TranscriptsDisabled, NoTranscriptFound) as e:
@@ -143,7 +156,6 @@ async def generate_summary(transcript: dict):
         text_content = " ".join([f"[{entry['start']}s] {entry['text']}" for entry in transcript.get("transcript", [])])
         logger.info(f"Processed transcript length: {len(text_content)} characters")
     
-
         # Generate summary using the LLM with structured output
         logger.info("Sending request to OpenAI API...")
         chain = llm.with_structured_output(OutlineResponse)
@@ -190,3 +202,32 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/chat")
+async def chat(request: dict):
+    print("Received chat request:", request)
+    
+    messages = request.get('messages', [])
+    video_id = request.get('video_id')
+    
+    print("Extracted data:", {
+        "messages": messages,
+        "video_id": video_id
+    })
+    
+    if not video_id:
+        print("Error: Missing video_id")
+        raise HTTPException(status_code=400, detail="video_id is required")
+    
+    try:
+        # If no messages, start a new conversation
+        if not messages:
+            response = await generate_chat_response("Hi! I'm ready to help you understand this video.", video_id, [])
+        else:
+            response = await generate_chat_response(messages[-1]['text'], video_id, messages[:-1])
+            
+        print("Generated response:", response)
+        return {"answer": response}
+    except Exception as e:
+        print("Error generating response:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))

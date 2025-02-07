@@ -8,18 +8,27 @@ interface ChatMessage {
 
 interface ChatViewProps {
   playerRef: React.MutableRefObject<any>;
+  videoId: string;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
   playerRef,
+  videoId,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || isGenerating) return;
+
+    // Validate videoId
+    if (!videoId) {
+      setError('No video selected. Please select a YouTube video first.');
+      return;
+    }
 
     // Add user message
     const userMessage: ChatMessage = {
@@ -29,18 +38,76 @@ const ChatView: React.FC<ChatViewProps> = ({
     };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setError(null);
     
-    // Mock AI response
+    // Call chat API
     setIsGenerating(true);
-    setTimeout(() => {
-      const mockResponse: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: `Mock response #${messages.length + 1}`,
-        isAI: true,
+    try {
+      // Create new message object
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: inputMessage.trim(),
+        isAI: false
       };
-      setMessages(prev => [...prev, mockResponse]);
+
+      // Add new message to messages array
+      const updatedMessages = [...messages, newMessage];
+      setMessages(updatedMessages);
+
+      // Get last 5 messages for context, including the new message
+      const recentMessages = updatedMessages.slice(-5);
+      
+      // Log the request we're about to make
+      console.log('Making chat request with:', {
+        url: '/api/chat',
+        messages: recentMessages,
+        video_id: videoId
+      });
+      
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: recentMessages,
+          video_id: videoId
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+      
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      // Add AI response
+      const aiMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: data.answer.answer,  // Access the nested answer field
+        isAI: true
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      
+      // Log the request data that caused the error
+      console.log('Request data:', {
+        messages: messages.slice(-5),
+        video_id: videoId
+      });
+      
+      setError('Failed to get response from AI. Please try again.');
+    } finally {
       setIsGenerating(false);
-    }, 500);
+    }
   };
 
   return (
@@ -68,6 +135,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
         {isGenerating && (
           <p className="text-gray-600">Generating response...</p>
+        )}
+        {error && (
+          <p className="text-red-500 text-center">{error}</p>
         )}
       </div>
       

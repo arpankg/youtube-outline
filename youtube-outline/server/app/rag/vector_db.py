@@ -17,7 +17,7 @@ class VectorDB:
             api_key=os.getenv('PINECONE_API_KEY')
         )
         self.index_name = "youtube-transcripts"
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
         
     async def upload_transcript(self, transcript: List[Dict[str, Union[str, float]]], video_id: str) -> None:
         """
@@ -49,7 +49,8 @@ class VectorDB:
             logger.info(f"Created metadata for {len(texts_with_metadata)} chunks")
             
             # Check if index exists
-            if self.index_name not in self.pc.list_indexes().names():
+            existing_indexes = [index.name for index in self.pc.list_indexes()]
+            if self.index_name not in existing_indexes:
                 logger.error(f"Index '{self.index_name}' does not exist in Pinecone")
                 raise ValueError(f"Index '{self.index_name}' does not exist in Pinecone")
             
@@ -86,7 +87,7 @@ class VectorDB:
             query_embedding = self.embeddings.embed_query(query)
             
             # Search in Pinecone with metadata filter
-            results = self.pc.index(self.index_name).query(
+            results = self.pc.Index(self.index_name).query(
                 vector=query_embedding,
                 filter={"video_id": video_id},
                 top_k=top_k,

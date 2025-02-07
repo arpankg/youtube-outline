@@ -247,6 +247,7 @@ export default function TranscriptPage() {
               ) : currentView === 'chat' ? (
                 <ChatView
                   playerRef={playerRef}
+                  videoId={videoId || ''}
                 />
               ) : (
                 <QuizView />

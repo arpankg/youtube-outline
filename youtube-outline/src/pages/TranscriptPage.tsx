@@ -6,6 +6,7 @@ import { formatTime, parseYouTubeUrl } from '../utils/utils'
 import TranscriptContent from '../components/TranscriptContent'
 import OutlineView from '../components/OutlineView'
 import ChatView from '../components/ChatView'
+import QuizView from '../components/QuizView'
 
 
 
@@ -17,7 +18,7 @@ export default function TranscriptPage() {
   const parsedUrl = parseYouTubeUrl(url)
   const videoId = parsedUrl?.videoId
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
-  const [currentView, setCurrentView] = useState<'transcript' | 'outline' | 'chat'>('transcript')
+  const [currentView, setCurrentView] = useState<'transcript' | 'outline' | 'chat' | 'quiz'>('transcript')
   const playerRef = useRef<any>(null)
   const activeSegmentRef = useRef<number>(-1)
   const segmentElementsRef = useRef<(HTMLElement | null)[]>([])
@@ -217,9 +218,16 @@ export default function TranscriptPage() {
                   >
                     Chat View
                   </button>
+                  <button 
+                    id="quiz-view-button"
+                    className={`px-4 py-2 ${currentView === 'quiz' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
+                    onClick={() => setCurrentView('quiz')}
+                  >
+                    Quiz
+                  </button>
                 </div>
                 <h1 className="text-2xl font-bold mt-2">
-                  {currentView === 'transcript' ? 'Transcript' : currentView === 'outline' ? 'Outline' : 'Chat'} for Video: {videoId}
+                  {currentView === 'transcript' ? 'Transcript' : currentView === 'outline' ? 'Outline' : currentView === 'chat' ? 'Chat' : 'Quiz'} for Video: {videoId}
                 </h1>
               </div>
             </div>
@@ -236,10 +244,12 @@ export default function TranscriptPage() {
                   transcript={transcript}
                   playerRef={playerRef}
                 />
-              ) : (
+              ) : currentView === 'chat' ? (
                 <ChatView
                   playerRef={playerRef}
                 />
+              ) : (
+                <QuizView />
               )}
             </div>
           </div>

@@ -9,3 +9,10 @@ export interface OutlineSegment {
   start: number;
   duration: number;
 }
+
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: [string, string, string, string];  // Tuple of exactly 4 options
+  correctAnswer: number;
+}

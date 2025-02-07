@@ -17,9 +17,7 @@ export default function TranscriptPage() {
   const parsedUrl = parseYouTubeUrl(url)
   const videoId = parsedUrl?.videoId
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
-  const [outline, setOutline] = useState<OutlineSegment[]>([])
   const [currentView, setCurrentView] = useState<'transcript' | 'outline' | 'chat'>('transcript')
-  const [isLoadingOutline, setIsLoadingOutline] = useState(false)
   const playerRef = useRef<any>(null)
   const activeSegmentRef = useRef<number>(-1)
   const segmentElementsRef = useRef<(HTMLElement | null)[]>([])
@@ -101,35 +99,6 @@ export default function TranscriptPage() {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-    }
-  };
-
-  const fetchOutline = async () => {
-    if (!transcript.length) return;
-    
-    setIsLoadingOutline(true);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/generate-summary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transcript: transcript
-        }),
-      });
-      
-      if (!response.ok) {
-        console.error('Error generating outline:', response.status, response.statusText);
-        return;
-      }
-      
-      const data = await response.json();
-      setOutline(data.points || []);
-    } catch (error) {
-      console.error('Error generating outline:', error);
-    } finally {
-      setIsLoadingOutline(false);
     }
   };
 
@@ -237,12 +206,7 @@ export default function TranscriptPage() {
                   <button 
                     id="outline-view-button"
                     className={`px-4 py-2 ${currentView === 'outline' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
-                    onClick={() => {
-                      setCurrentView('outline');
-                      if (!outline.length) {
-                        fetchOutline();
-                      }
-                    }}
+                    onClick={() => setCurrentView('outline')}
                   >
                     Outline View
                   </button>
@@ -271,9 +235,6 @@ export default function TranscriptPage() {
                 <OutlineView
                   transcript={transcript}
                   playerRef={playerRef}
-                  outline={outline}
-                  isLoadingOutline={isLoadingOutline}
-                  onGenerateOutline={fetchOutline}
                 />
               ) : (
                 <ChatView

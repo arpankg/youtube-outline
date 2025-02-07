@@ -1,28 +1,55 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TranscriptSegment, OutlineSegment } from '../types/types';
 import { formatTime } from '../utils/utils';
 
 interface OutlineViewProps {
   transcript: TranscriptSegment[];
   playerRef: React.MutableRefObject<any>;
-  outline: OutlineSegment[];
-  isLoadingOutline: boolean;
-  onGenerateOutline: () => Promise<void>;
 }
 
 const OutlineView: React.FC<OutlineViewProps> = ({
+  transcript,
   playerRef,
-  outline,
-  isLoadingOutline,
-  onGenerateOutline
 }) => {
-  useEffect(() => {
-    if (outline.length === 0) {
-      onGenerateOutline();
-    }
-  }, [outline.length, onGenerateOutline]);
+  const [outline, setOutline] = useState<OutlineSegment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  return isLoadingOutline ? (
+  const fetchOutline = async () => {
+    if (!transcript.length) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/generate-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcript: transcript
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Error generating outline:', response.status, response.statusText);
+        return;
+      }
+      
+      const data = await response.json();
+      setOutline(data.points || []);
+    } catch (error) {
+      console.error('Error generating outline:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (transcript.length > 0 && !isLoading) {
+      fetchOutline();
+    }
+  }, []); // Empty dependency array = only run on mount
+
+  return isLoading ? (
     <p id="outline-loading" className="text-gray-600">Generating outline...</p>
   ) : outline.length === 0 ? (
     <p id="outline-empty" className="text-gray-600">No outline available</p>

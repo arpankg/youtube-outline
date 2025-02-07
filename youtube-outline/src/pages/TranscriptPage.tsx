@@ -250,7 +250,7 @@ export default function TranscriptPage() {
                   videoId={videoId || ''}
                 />
               ) : (
-                <QuizView />
+                <QuizView transcript={transcript} />
               )}
             </div>
           </div>

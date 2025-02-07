@@ -13,6 +13,7 @@ import logging
 from pprint import pformat
 from .rag.vector_db import VectorDB
 from .chat_transcript import generate_chat_response
+from .quiz_generator import generate_quiz_questions, QuizGenerationRequest
 import asyncio
 
 # Load environment variables from the root directory
@@ -192,6 +193,19 @@ async def generate_summary(transcript: dict):
         
     except Exception as e:
         logger.error(f"Error generating summary: {str(e)}")
+        logger.exception("Full traceback:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-quiz")
+async def generate_quiz(transcript: dict):
+    try:
+        logger.info("Received request to generate quiz questions")
+        request = QuizGenerationRequest(transcript=transcript.get("transcript", []))
+        questions = await generate_quiz_questions(request)
+        return {"questions": [q.dict() for q in questions]}
+        
+    except Exception as e:
+        logger.error(f"Error generating quiz: {str(e)}")
         logger.exception("Full traceback:")
         raise HTTPException(status_code=500, detail=str(e))
 

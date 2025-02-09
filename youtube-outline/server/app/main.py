@@ -127,10 +127,22 @@ async def get_transcript(request: TranscriptRequest):
         if not video_id:
             logger.warning(f"Invalid YouTube URL received: {request.url}")
             raise HTTPException(status_code=400, detail="Invalid YouTube URL")
+        
+        # Setup proxy configuration
+        proxy_user = os.getenv('PROXY_USER')
+        proxy_pass = os.getenv('PROXY_PASS')
+        
+        if not (proxy_user and proxy_pass):
+            logger.warning("Proxy credentials not set in environment variables")
+            proxy = None
+        else:
+            # Format: username:password@residential.smartproxy.com:port
+            proxy = f"http://{proxy_user}:{proxy_pass}@gate.smartproxy.com:7000"
+            logger.debug("Using Smartproxy Residential for transcript fetching")
             
-        # Get transcript
+        # Get transcript with proxy
         logger.debug(f"Fetching transcript for video ID: {video_id}")
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"http": proxy, "https": proxy} if proxy else None)
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
         
         # Upload transcript to vector db asynchronously

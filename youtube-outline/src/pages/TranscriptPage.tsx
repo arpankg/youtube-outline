@@ -202,21 +202,21 @@ export default function TranscriptPage() {
                     className={`px-4 py-2 ${currentView === 'transcript' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
                     onClick={() => setCurrentView('transcript')}
                   >
-                    Transcript View
+                    Transcript
                   </button>
                   <button 
                     id="outline-view-button"
                     className={`px-4 py-2 ${currentView === 'outline' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
                     onClick={() => setCurrentView('outline')}
                   >
-                    Outline View
+                    Outline
                   </button>
                   <button 
                     id="chat-view-button"
                     className={`px-4 py-2 ${currentView === 'chat' ? 'bg-blue-500' : 'bg-gray-500'} text-white rounded hover:bg-blue-600`}
                     onClick={() => setCurrentView('chat')}
                   >
-                    Chat View
+                    Chat
                   </button>
                   <button 
                     id="quiz-view-button"

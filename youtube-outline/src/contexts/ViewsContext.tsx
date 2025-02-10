@@ -7,15 +7,27 @@ interface ViewsContextType {
     duration: number;
   }>;
   setOutline: (outline: ViewsContextType['outline']) => void;
+  messages: Array<{
+    id: string;
+    text: string;
+    isAI: boolean;
+  }>;
+  setMessages: (messages: ViewsContextType['messages']) => void;
 }
 
 const ViewsContext = createContext<ViewsContextType | undefined>(undefined);
 
 export function ViewsProvider({ children }: { children: React.ReactNode }) {
   const [outline, setOutline] = useState<ViewsContextType['outline']>([]);
+  const [messages, setMessages] = useState<ViewsContextType['messages']>([]);
 
   return (
-    <ViewsContext.Provider value={{ outline, setOutline }}>
+    <ViewsContext.Provider value={{ 
+      outline, 
+      setOutline,
+      messages,
+      setMessages
+    }}>
       {children}
     </ViewsContext.Provider>
   );

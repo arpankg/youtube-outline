@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useViews } from '../contexts/ViewsContext';
 
 interface ChatMessage {
   id: string;
@@ -15,7 +16,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   playerRef,
   videoId,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { messages, setMessages } = useViews();
   const [isGenerating, setIsGenerating] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -36,26 +37,15 @@ const ChatView: React.FC<ChatViewProps> = ({
       text: inputMessage.trim(),
       isAI: false,
     };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prevMessages => [...prevMessages, userMessage]);
     setInputMessage('');
     setError(null);
     
     // Call chat API
     setIsGenerating(true);
     try {
-      // Create new message object
-      const newMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: inputMessage.trim(),
-        isAI: false
-      };
-
-      // Add new message to messages array
-      const updatedMessages = [...messages, newMessage];
-      setMessages(updatedMessages);
-
-      // Get last 5 messages for context, including the new message
-      const recentMessages = updatedMessages.slice(-5);
+      // Get last 5 messages for context, including the new user message
+      const recentMessages = [...messages, userMessage].slice(-5);
       
       // Log the request we're about to make
       console.log('Making chat request with:', {
@@ -90,7 +80,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         text: data.answer.answer,  // Access the nested answer field
         isAI: true
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prevMessages => [...prevMessages, aiMessage]);
     } catch (error) {
       console.error('Chat error:', error);
       if (error instanceof Error) {

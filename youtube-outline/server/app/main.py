@@ -27,10 +27,13 @@ logger = logging.getLogger(__name__)
 # Define the prompt template for chapter generation
 CHAPTER_GENERATION_PROMPT = """I have a transcript of a YouTube video provided by the YouTube API. Each transcript entry includes a start time, a duration, and the text spoken. Your task is to analyze this transcript and generate a list of chapters that cover all the important topics discussed in the video. Please follow these guidelines:
 
-1. **Identify Natural Breaks:**  
+1. **Even Spacing:**
+    Ensure that the chapters cover an approximately even time range. It's okay if some chapters are a little longer than others but try to keep them similar.
+
+2. **Identify Natural Breaks:**  
    Analyze the transcript to pinpoint natural breakpoints—moments where the speaker transitions to a new subject or introduces a distinct topic. Use these points as the beginnings of new chapters.
 
-2. **Cover All Major Topics:**  
+3. **Cover All Major Topics:**  
    Ensure that every significant topic or section discussed in the video is represented by its own chapter. Avoid including chapters for minor pauses or insignificant changes in the discussion.
 
 3. **Chapter Titles:**  

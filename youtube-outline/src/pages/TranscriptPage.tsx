@@ -1,13 +1,12 @@
 import { useSearchParams } from 'react-router-dom'
 import YouTube, { YouTubeEvent, YouTubePlayer } from 'react-youtube'
 import { useEffect, useState, useRef } from 'react'
-import { TranscriptSegment, OutlineSegment } from '../types/types'
-import { formatTime, parseYouTubeUrl } from '../utils/utils'
+import { TranscriptSegment } from '../types/types'
 import TranscriptContent from '../components/TranscriptContent'
 import OutlineView from '../components/OutlineView'
 import ChatView from '../components/ChatView'
 import QuizView from '../components/QuizView'
-
+import { parseYouTubeUrl } from '../utils/utils'
 
 
 

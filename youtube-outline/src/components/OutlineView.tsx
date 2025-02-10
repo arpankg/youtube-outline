@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TranscriptSegment, OutlineSegment } from '../types/types';
+import { TranscriptSegment } from '../types/types';
 import { formatTime } from '../utils/utils';
 
 interface OutlineViewProps {
@@ -11,7 +11,7 @@ const OutlineView: React.FC<OutlineViewProps> = ({
   transcript,
   playerRef,
 }) => {
-  const [outline, setOutline] = useState<OutlineSegment[]>([]);
+  const [outline, setOutline] = useState<TranscriptSegment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchOutline = async () => {

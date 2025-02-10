@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useViews } from '../contexts/ViewsContext';
 import { TranscriptSegment } from '../types/types';
 import { formatTime } from '../utils/utils';
 
@@ -11,7 +12,7 @@ const OutlineView: React.FC<OutlineViewProps> = ({
   transcript,
   playerRef,
 }) => {
-  const [outline, setOutline] = useState<TranscriptSegment[]>([]);
+  const { outline, setOutline } = useViews();
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchOutline = async () => {
@@ -44,7 +45,7 @@ const OutlineView: React.FC<OutlineViewProps> = ({
   };
 
   useEffect(() => {
-    if (transcript.length > 0 && !isLoading) {
+    if (transcript.length > 0 && !isLoading && outline.length === 0) {
       fetchOutline();
     }
   }, []); // Empty dependency array = only run on mount

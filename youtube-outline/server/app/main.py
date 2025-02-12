@@ -24,58 +24,10 @@ load_dotenv(env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define the prompt template for chapter generation
-CHAPTER_GENERATION_PROMPT = """I have a transcript of a YouTube video provided by the YouTube API. Each transcript entry includes a start time, a duration, and the text spoken. Your task is to analyze this transcript and generate a list of chapters that cover all the important topics discussed in the video. Please follow these guidelines:
-
-1. **Even Spacing:**
-    Ensure that the chapters cover an approximately even time range. It's okay if some chapters are a little longer than others but try to keep them similar.
-
-2. **Identify Natural Breaks:**  
-   Analyze the transcript to pinpoint natural breakpoints—moments where the speaker transitions to a new subject or introduces a distinct topic. Use these points as the beginnings of new chapters.
-
-3. **Cover All Major Topics:**  
-   Ensure that every significant topic or section discussed in the video is represented by its own chapter. Avoid including chapters for minor pauses or insignificant changes in the discussion.
-
-3. **Chapter Titles:**  
-   For each chapter, create a concise and descriptive title that clearly reflects the subject or theme of that segment. The title should be intuitive and informative for viewers.
-
-4. **Timestamps:**  
-   Use the start times from the transcript entries to determine when each chapter begins. These timestamps will mark the exact moment in the video where the topic change occurs.
-
-**Additional Considerations:**
-
-- **Granularity:**  
-  Avoid over-segmentation. Only select chapters for significant shifts in content rather than for every minor pause or change in tone.
-
-- **Consistency:**  
-  Maintain a consistent style and tone across all chapter titles. Ensure that they are easy to understand and reflect the overall structure of the video.
-
-- **Accuracy:**  
-  Double-check that the chapter titles accurately capture the essence of the topics discussed, and that the timestamps precisely match the transcript's start times for those segments.
-
-Using these instructions, please analyze the provided transcript and generate the chapter list for the video. 
-
-{text_content}
-
-"""
+from .summary_generator import generate_summary, FinalizedOutlineResponse
 
 class TranscriptRequest(BaseModel):
     url: str
-
-class OutlinePoint(BaseModel):
-    text: str
-    start: float
-
-class OutlineResponse(BaseModel):
-    points: List[OutlinePoint]
-
-class FinalizedOutlinePoint(BaseModel):
-    text: str
-    start: float
-    duration: float
-
-class FinalizedOutlineResponse(BaseModel):
-    points: List[FinalizedOutlinePoint]
 
 class VectorDBUpload(BaseModel):
     text: str
@@ -152,8 +104,8 @@ async def get_transcript(request: TranscriptRequest):
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
         
         # Upload transcript to vector db asynchronously
-        vector_db = VectorDB()
-        asyncio.create_task(vector_db.upload_transcript(transcript, video_id))  # Properly schedule the coroutine
+        # vector_db = VectorDB()
+        # asyncio.create_task(vector_db.upload_transcript(transcript, video_id))  # Properly schedule the coroutine
         logger.info(f"Started async upload to vector db for video ID: {video_id}")
         
         return {"transcript": transcript}
@@ -166,53 +118,8 @@ async def get_transcript(request: TranscriptRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate-summary")
-async def generate_summary(transcript: dict):
-    try:
-        logger.info("Received request to generate summary")
-        logger.info(f"Transcript received with {len(transcript.get('transcript', []))} entries")
-        
-        # Convert transcript to a format suitable for the model
-        text_content = " ".join([f"[{entry['start']}s] {entry['text']}" for entry in transcript.get("transcript", [])])
-        logger.info(f"Processed transcript length: {len(text_content)} characters")
-    
-        # Generate summary using the LLM with structured output
-        logger.info("Sending request to OpenAI API...")
-        chain = llm.with_structured_output(OutlineResponse)
-        result = chain.invoke(CHAPTER_GENERATION_PROMPT.format(text_content=text_content))
-        
-        logger.info(f"LLM Response:\n{pformat(result.dict(), indent=2)}")
-
-        # Convert to finalized points with durations
-        points = result.points
-        transcript_entries = transcript.get('transcript', [])
-        finalized_points = []
-
-        for i in range(len(points)):
-            point = points[i]
-            duration = 0.0
-            
-            if i < len(points) - 1:
-                # Duration is until next point
-                duration = points[i + 1].start - point.start
-            else:
-                # For last point, duration is until end of transcript
-                last_entry = transcript_entries[-1]
-                duration = (last_entry['start'] + last_entry.get('duration', 0)) - point.start
-            
-            finalized_points.append(FinalizedOutlinePoint(
-                text=point.text,
-                start=point.start,
-                duration=duration
-            ))
-
-        final_response = FinalizedOutlineResponse(points=finalized_points)
-        logger.info(f"Finalized response with durations:\n{pformat(final_response.dict(), indent=2)}")
-        return final_response
-        
-    except Exception as e:
-        logger.error(f"Error generating summary: {str(e)}")
-        logger.exception("Full traceback:")
-        raise HTTPException(status_code=500, detail=str(e))
+async def generate_summary_endpoint(transcript: dict):
+    return await generate_summary(transcript)
 
 @app.post("/generate-quiz")
 async def generate_quiz(transcript: dict):

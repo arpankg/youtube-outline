@@ -189,6 +189,7 @@ export default function TranscriptPage() {
                     height: '100%',
                     playerVars: {
                       autoplay: 0,
+                      playsinline: 1,
                     },
                   }}
                   className="w-full aspect-video"

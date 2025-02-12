@@ -148,7 +148,7 @@ async def get_transcript(request: TranscriptRequest):
             
         # Get transcript with proxy
         logger.debug(f"Fetching transcript for video ID: {video_id}")
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"http": proxy, "https": proxy} if proxy else None)
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en-US', 'en', 'en-GB', 'en-CA', 'en-AU', 'en-IN'], proxies={"http": proxy, "https": proxy} if proxy else None)
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
         
         # Upload transcript to vector db asynchronously

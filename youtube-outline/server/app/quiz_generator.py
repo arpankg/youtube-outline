@@ -112,7 +112,7 @@ async def generate_quiz_questions(request: QuizGenerationRequest) -> List[QuizQu
         # Initialize ChatGPT
         llm = ChatOpenAI(
             model="gpt-4o-mini",
-            temperature=0.7  # Some creativity for varied questions
+            temperature=0.3
         )
         
         # Generate questions for all segments in parallel

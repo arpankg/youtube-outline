@@ -18,15 +18,15 @@ CHAPTER_SUMMARY_PROMPT = """I have a portion of a YouTube video transcript provi
     Ensure that the chapters cover an approximately even time range within this segment. It's okay if some chapters are a little longer than others but try to keep them similar.
 
 2. **Identify Natural Breaks:**  
-   Analyze the transcript to pinpoint natural breakpoints—moments where the speaker transitions to a new subject or introduces a distinct topic. Use these points as the beginnings of new chapters.
+   Analyze the transcript to pinpoint natural breakpoints—moments where the speaker introduces a distinct topic. Use these points as the beginnings of new chapters.
 
 3. **Cover All Major Topics:**  
-   Ensure that every significant topic or section discussed in this segment is represented by its own chapter. Avoid including chapters for minor pauses or insignificant changes in the discussion.
+   Ensure that every significant topic or section discussed in this segment is represented by its own chapter.
 
 4. **Chapter Titles and Summaries:**  
    For each chapter:
    - Create a concise and descriptive title that clearly reflects the subject or theme
-   - Provide 3-5 bullet points summarizing the key points discussed in that chapter
+   - Provide 3-5 bullet points summarizing the key points discussed in the entire chapter <- these bullet points should not just be the first part of the chapter
 
 5. **Timestamps:**  
    Use the start times from the transcript entries to determine when each chapter begins. These timestamps will mark the exact moment in the video where the topic change occurs.

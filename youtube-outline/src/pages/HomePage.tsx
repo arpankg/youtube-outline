@@ -44,12 +44,12 @@ export default function HomePage() {
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Increased the left column to span 9 columns (3/4 of 12) */}
           {/* Left side - Image */}
           <div 
-            className="lg:col-span-8 relative w-full aspect-video pl-12"
+            className="hidden lg:block lg:col-span-8 relative w-full aspect-video pl-12"
             style={{
               perspective: '1000px',
               transformStyle: 'preserve-3d'

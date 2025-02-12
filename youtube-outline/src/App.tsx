@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage'
 import TranscriptPage from './pages/TranscriptPage'
 
 function App() {
+  console.log('[App] Rendering');
   return (
     <ViewsProvider>
       <Routes>

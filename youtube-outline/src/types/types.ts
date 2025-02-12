@@ -8,6 +8,7 @@ export interface OutlineSegment {
   text: string;
   start: number;
   duration: number;
+  bullet_points: string[];
 }
 
 export interface QuizQuestion {

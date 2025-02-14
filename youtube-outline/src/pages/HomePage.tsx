@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { FeaturedSummaries } from '../components/FeaturedSummaries'
 
 export default function HomePage() {
@@ -39,6 +39,12 @@ export default function HomePage() {
           <div className="text-3xl font-bold">LectureTube</div>
           <div className="flex items-center space-x-6">
             <button className="text-lg text-gray-600 hover:text-gray-900">Go Pro</button>
+            <Link 
+              to="/signin"
+              className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+            >
+              Sign In
+            </Link>
           </div>
         </div>
       </nav>
@@ -90,9 +96,11 @@ export default function HomePage() {
                 </div>
                 <div className="mt-2">10x faster</div>
               </h1>
-              <p className="text-xl text-gray-600 text-left">
-                Get a detailed summary of any YouTube video. Ask ChatGPT questions about the video and get quick answers. Generate flashcards and test yourself on the lecture material with auto-generated quizzes.
-              </p>
+              <ul className="text-xl text-gray-600 text-left list-disc pl-6 space-y-2">
+                <li>Get a detailed summary of any YouTube video</li>
+                <li>Ask ChatGPT questions about the video and get quick answers</li>
+                <li>Generate flashcards and test yourself with auto-generated quizzes</li>
+              </ul>
             </div>
 
             {/* Input Section */}

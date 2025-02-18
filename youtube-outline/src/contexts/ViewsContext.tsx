@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { OutlineSegment } from '../types/types';
+import { OutlineSegment, TranscriptSegment } from '../types/types';
 
 interface ViewsContextType {
   outline: OutlineSegment[];
@@ -12,6 +12,8 @@ interface ViewsContextType {
   setMessages: (messages: ViewsContextType['messages']) => void;
   isFetchingOutline: boolean;
   setIsFetchingOutline: (isFetching: boolean) => void;
+  transcript: TranscriptSegment[];
+  setTranscript: (transcript: TranscriptSegment[]) => void;
 }
 
 const ViewsContext = createContext<ViewsContextType | undefined>(undefined);
@@ -20,6 +22,7 @@ export function ViewsProvider({ children }: { children: React.ReactNode }) {
   const [outline, setOutlineInternal] = useState<ViewsContextType['outline']>([]);
   const [messages, setMessages] = useState<ViewsContextType['messages']>([]);
   const [isFetchingOutline, setIsFetchingOutline] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
 
   console.log('[ViewsContext] Provider value', {
     outlineLength: outline.length,
@@ -46,7 +49,9 @@ export function ViewsProvider({ children }: { children: React.ReactNode }) {
       messages,
       setMessages,
       isFetchingOutline,
-      setIsFetchingOutline
+      setIsFetchingOutline,
+      transcript,
+      setTranscript
     }}>
       {children}
     </ViewsContext.Provider>

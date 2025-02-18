@@ -2,11 +2,11 @@ import { useSearchParams } from 'react-router-dom'
 import YouTube, { YouTubeEvent, YouTubePlayer } from 'react-youtube'
 import { useEffect, useState, useRef } from 'react'
 import { TranscriptSegment } from '../types/types'
-import TranscriptContent from '../components/TranscriptContent'
+import TranscriptContent, { TranscriptContentHandle } from '../components/TranscriptContent'
 import OutlineView from '../components/OutlineView'
 import ChatView from '../components/ChatView'
 import QuizView from '../components/QuizView'
-import { parseYouTubeUrl } from '../utils/utils'
+import { parseYouTubeUrl, fetchTranscript } from '../utils/utils'
 import { DocumentTextIcon, BookOpenIcon, ChatBubbleLeftRightIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 import { useViews } from '../contexts/ViewsContext'
 
@@ -18,136 +18,23 @@ export default function TranscriptPage() {
   const url = searchParams.toString() ? `https://youtube.com/watch?${searchParams.toString()}` : ''
   const parsedUrl = parseYouTubeUrl(url)
   const videoId = parsedUrl?.videoId
-  const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
   const [currentView, setCurrentView] = useState<'transcript' | 'outline' | 'chat' | 'quiz'>('transcript')
-  const { setOutline } = useViews()
+  const { setOutline, transcript, setTranscript } = useViews()
   const playerRef = useRef<any>(null)
-  const activeSegmentRef = useRef<number>(-1)
   const segmentElementsRef = useRef<(HTMLElement | null)[]>([])
-  const intervalRef = useRef<number | null>(null)
-
-  const findInitialSegment = (time: number): number => {
-    let left = 0;
-    let right = transcript.length - 1;
-    
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      if (transcript[mid].start <= time && (mid === transcript.length - 1 || transcript[mid + 1].start > time)) {
-        return mid;
-      }
-      if (transcript[mid].start > time) {
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return -1;
-  }
-
-  const startHighlightInterval = () => {
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        const currentTime = playerRef.current.getCurrentTime();
-        if (activeSegmentRef.current === -1) {
-          activeSegmentRef.current = findInitialSegment(currentTime);
-          
-          if (activeSegmentRef.current !== -1) {
-            segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
-          }
-        } else {
-          const currentSegmentStart = transcript[activeSegmentRef.current].start;
-          
-          if (Math.abs(currentTime - currentSegmentStart) > 2) {
-            segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
-            
-            activeSegmentRef.current = findInitialSegment(currentTime);
-            
-            if (activeSegmentRef.current !== -1) {
-              segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
-            }
-          } else if (activeSegmentRef.current < transcript.length - 1 && 
-              transcript[activeSegmentRef.current + 1].start <= currentTime) {
-            segmentElementsRef.current[activeSegmentRef.current]?.classList.remove('text-red-500');
-            
-            activeSegmentRef.current++;
-            segmentElementsRef.current[activeSegmentRef.current]?.classList.add('text-red-500');
-          }
-        }
-      }, 100);
-    }
-  };
-
-  const stopHighlightInterval = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
+  const transcriptContentRef = useRef<TranscriptContentHandle>(null)
 
   useEffect(() => {
-    return () => stopHighlightInterval();
-  }, []);
-
-  useEffect(() => {
-    // Clear both transcript and outline when videoId changes
-    setTranscript([]);
+    // Clear outline and transcript when videoId changes
     setOutline([]);
-
-    console.log('[TranscriptPage] Transcript effect running', {
-      videoId,
-      hasTranscript: transcript.length > 0
-    });
-
-    const fetchTranscript = async () => {
-      if (!videoId) {
-        return
-      }
-
-      try {
-        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`
-        
-        // Try up to 5 times with exponential backoff
-        let retryCount = 0;
-        let response;
-        let data;
-        
-        while (retryCount < 5) {
-          console.log("sending get transcript request to backend")
-          response = await fetch('https://qczitkftpjbnvyrydrtpujruu40mxarz.lambda-url.us-east-1.on.aws', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              url: youtubeUrl,
-            }),
-          })
-          
-          if (!response.ok) {
-            // Only retry on 502 Bad Gateway
-            if (response.status === 502 && retryCount < 4) {
-              const delay = 1000 * Math.pow(2, retryCount); // 1s, 2s, 4s
-              console.log(`Retry ${retryCount + 1}/5 after ${delay}ms delay...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              retryCount++;
-              continue;
-            }
-            console.error('Server error:', response.status, response.statusText);
-            return;
-          }
-          
-          data = await response.json();
-          break; // Success, exit retry loop
-        }
-        
-        setTranscript(data?.transcript || [])
-      } catch (error) {
-        console.error('Error fetching transcript:', error)
-      }
+    if (videoId) {
+      setTranscript([]);
+      const getTranscript = async () => {
+        const newTranscript = await fetchTranscript(videoId);
+        setTranscript(newTranscript);
+      };
+      getTranscript();
     }
-
-
-    fetchTranscript()
   }, [videoId])
 
   console.log('[TranscriptPage] Rendering', { currentView });
@@ -214,11 +101,13 @@ export default function TranscriptPage() {
                   }}
                   onStateChange={(event: YouTubeEvent<YouTubePlayer>) => {
                     const playerState = event.data;
+                    const currentTime = event.target.getCurrentTime();
                     
                     if (playerState === 1) { // Playing
-                      startHighlightInterval();
+                      transcriptContentRef.current?.startHighlightInterval();
+                      transcriptContentRef.current?.jumpToTime(currentTime);
                     } else { // Any other state (paused, ended, etc)
-                      stopHighlightInterval();
+                      transcriptContentRef.current?.stopHighlightInterval();
                     }
                   }}
                 />
@@ -297,9 +186,10 @@ export default function TranscriptPage() {
             <div id="content-view-container" className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">
               {currentView === 'transcript' ? (
                 <TranscriptContent
-                  transcript={transcript}
+                  ref={transcriptContentRef}
                   segmentElementsRef={segmentElementsRef}
                   playerRef={playerRef}
+                  videoId={videoId || ''}
                 />
               ) : currentView === 'outline' ? (
                 console.log('[TranscriptPage] Rendering OutlineView', {

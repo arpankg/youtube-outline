@@ -53,7 +53,7 @@ Conversation history:
 
 Current question: {message}
 
-Answer based only on the above context. If there is insufficient information, please indicate that.
+Answer based only on the above context. If there is insufficient information, please indicate that (but you should still make a best attempt to answer the question).
     """.strip()
 
     logger.info(f"Constructed prompt for GPT-4: {prompt}")

@@ -15,6 +15,10 @@ from .rag.vector_db import VectorDB
 from .chat_transcript import generate_chat_response
 from .quiz_generator import generate_quiz_questions, QuizGenerationRequest
 import asyncio
+import boto3
+from botocore.exceptions import ClientError
+import time
+import json
 
 # Load environment variables from the root directory
 env_path = Path(__file__).parents[2] / '.env'
@@ -23,6 +27,21 @@ load_dotenv(env_path)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize S3
+s3 = boto3.client('s3',
+    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    region_name=os.getenv('AWS_REGION')
+)
+
+# DynamoDB initialization (commented out)
+# dynamodb = boto3.resource('dynamodb',
+#     aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+#     aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+#     region_name=os.getenv('AWS_REGION')
+# )
+# table = dynamodb.Table('youtube-transcripts')
 
 from .summary_generator import generate_summary, FinalizedOutlineResponse
 
@@ -75,6 +94,58 @@ llm = ChatOpenAI(
     openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 
+async def get_cached_transcript(video_id: str):
+    try:
+        response = s3.get_object(Bucket='youtube-transcripts-cache', Key=f"{video_id}.json")
+        data = json.loads(response['Body'].read().decode('utf-8'))
+        logger.info(f"Cache hit for video ID: {video_id}")
+        return data['transcript']
+    except s3.exceptions.NoSuchKey:
+        logger.info(f"Cache miss for video ID: {video_id}")
+        return None
+    except Exception as e:
+        logger.error(f"S3 error getting transcript: {str(e)}")
+        return None
+
+# DynamoDB version (commented out)
+# async def get_cached_transcript(video_id: str):
+#     try:
+#         response = table.get_item(Key={'video_id': video_id})
+#         if 'Item' in response:
+#             logger.info(f"Cache hit for video ID: {video_id}")
+#             return json.loads(response['Item'].get('transcript'))
+#         logger.info(f"Cache miss for video ID: {video_id}")
+#         return None
+#     except ClientError as e:
+#         logger.error(f"DynamoDB error getting transcript: {str(e)}")
+#         return None
+
+async def cache_transcript(video_id: str, transcript: list):
+    try:
+        s3.put_object(
+            Bucket='youtube-transcripts-cache',
+            Key=f"{video_id}.json",
+            Body=json.dumps({
+                'transcript': transcript,
+                'cached_at': int(time.time())
+            })
+        )
+        logger.info(f"Cached transcript for video ID: {video_id}")
+    except Exception as e:
+        logger.error(f"S3 error caching transcript: {str(e)}")
+
+# DynamoDB version (commented out)
+# async def cache_transcript(video_id: str, transcript: list):
+#     try:
+#         table.put_item(Item={
+#             'video_id': video_id,
+#             'transcript': json.dumps(transcript),
+#             'cached_at': int(time.time())
+#         })
+#         logger.info(f"Cached transcript for video ID: {video_id}")
+#     except ClientError as e:
+#         logger.error(f"DynamoDB error caching transcript: {str(e)}")
+
 @app.post("/transcript")
 async def get_transcript(request: TranscriptRequest):
     try:
@@ -86,6 +157,11 @@ async def get_transcript(request: TranscriptRequest):
             logger.warning(f"Invalid YouTube URL received: {request.url}")
             raise HTTPException(status_code=400, detail="Invalid YouTube URL")
         
+        # Check cache first
+        cached_transcript = await get_cached_transcript(video_id)
+        if cached_transcript:
+            return {"transcript": cached_transcript}
+        
         # Setup proxy configuration
         proxy_user = os.getenv('PROXY_USER')
         proxy_pass = os.getenv('PROXY_PASS')
@@ -94,14 +170,18 @@ async def get_transcript(request: TranscriptRequest):
             logger.warning("Proxy credentials not set in environment variables")
             proxy = None
         else:
-            # Format: username:password@residential.smartproxy.com:port
-            proxy = f"http://{proxy_user}:{proxy_pass}@gate.smartproxy.com:7000"
-            logger.debug("Using Smartproxy Residential for transcript fetching")
+            http_proxy = f"http://{proxy_user}:{proxy_pass}@gate.smartproxy.com:10000"
+            https_proxy = f"https://{proxy_user}:{proxy_pass}@gate.smartproxy.com:10000"
+            logger.info(f"HTTP PROXY URL: {http_proxy}")
+            logger.info(f"HTTPS PROXY URL: {https_proxy}")
             
         # Get transcript with proxy
-        logger.debug(f"Fetching transcript for video ID: {video_id}")
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en-US', 'en', 'en-GB', 'en-CA', 'en-AU', 'en-IN'], proxies={"http": proxy, "https": proxy} if proxy else None)
+        logger.info(f"Fetching transcript for video ID: {video_id}")
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en-US', 'en', 'en-GB', 'en-CA', 'en-AU', 'en-IN'], proxies={"http": http_proxy, "https": https_proxy} if proxy_user else None)
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
+        
+        # Cache the new transcript asynchronously
+        asyncio.create_task(cache_transcript(video_id, transcript))
         
         # Upload transcript to vector db asynchronously
         # vector_db = VectorDB()

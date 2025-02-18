@@ -11,6 +11,14 @@ import math
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class NamedEntity(BaseModel):
+    name: str    # The entity itself (e.g., "Python", "Euler's Formula", "John von Neumann")
+    type: str    # The type/category (e.g., "programming_language", "theorem", "person")
+
+class OutlinePoint(BaseModel):
+    text: str
+    bullet_points: List[str]
+
 # Define the prompt template for chapter generation
 CHAPTER_SUMMARY_PROMPT = """I have a portion of a YouTube video transcript provided by the YouTube API. Each transcript entry includes a start time, a duration, and the text spoken. Your task is to analyze this segment and generate chapters that cover the important topics discussed in this portion. Please follow these guidelines:
 
@@ -30,6 +38,12 @@ CHAPTER_SUMMARY_PROMPT = """I have a portion of a YouTube video transcript provi
 
 5. **Timestamps:**  
    Use the start times from the transcript entries to determine when each chapter begins. These timestamps will mark the exact moment in the video where the topic change occurs.
+
+6. **Named Entity Recognition:**
+   Identify any named entities in this segment. Examples of named entities include people, organizations, tools, mathematical concepts, books, papers, algorithms, governments, governmental agencies, medicines, etc. This is not an exhaustive list, there are many, many more types of named entities.
+   
+   For each entity, provide both the entity name and its type/category. Be specific with the type 
+   (e.g., use "programming_language" instead of just "technology").
 
 **Additional Considerations:**
 
@@ -60,6 +74,7 @@ class FinalizedOutlinePoint(BaseModel):
     start: float
     duration: float
     bullet_points: List[str]
+    entities: List[NamedEntity] = []
 
 class FinalizedOutlineResponse(BaseModel):
     points: List[FinalizedOutlinePoint]
@@ -136,7 +151,8 @@ async def process_segment(segment: List[dict], i: int, segments: List[List[dict]
         text=result.text,
         start=start_time,
         duration=duration,
-        bullet_points=result.bullet_points
+        bullet_points=result.bullet_points,
+        entities=result.entities
     )
 
 async def generate_summary(transcript: dict):

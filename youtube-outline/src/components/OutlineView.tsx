@@ -3,6 +3,8 @@ import { useViews } from '../contexts/ViewsContext';
 import { TranscriptSegment, OutlineSegment } from '../types/types';
 import ChapterCard from './ChapterCard';
 
+const LAMBDA_OUTLINE_URL = 'https://rtnkatiuaoomkwgdqonlm3zmsi0sbrnb.lambda-url.us-east-1.on.aws/';
+
 interface OutlineViewProps {
   transcript: TranscriptSegment[];
   playerRef: React.MutableRefObject<any>;
@@ -51,12 +53,19 @@ const OutlineView: React.FC<OutlineViewProps> = ({
     setIsFetchingOutline(true);
     setIsLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/generate-summary`, {
+      const videoId = new URLSearchParams(window.location.search).get('v');
+      if (!videoId) {
+        console.error('Could not extract video ID from URL');
+        return;
+      }
+
+      const response = await fetch(LAMBDA_OUTLINE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          video_id: videoId,
           transcript: transcript
         }),
       });

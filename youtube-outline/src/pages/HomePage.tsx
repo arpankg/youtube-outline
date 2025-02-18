@@ -38,7 +38,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="text-3xl font-bold">LectureTube</div>
           <div className="flex items-center space-x-6">
-            <button className="text-lg text-gray-600 hover:text-gray-900">Go Pro</button>
+            <Link to="/upgrade" className="text-lg text-gray-600 hover:text-gray-900">Go Pro</Link>
             <Link 
               to="/signin"
               className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"

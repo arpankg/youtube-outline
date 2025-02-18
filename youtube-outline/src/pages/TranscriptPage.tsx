@@ -106,24 +106,41 @@ export default function TranscriptPage() {
       try {
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`
         
-        const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/transcript`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: youtubeUrl,
-          }),
-        })
-        if (!response.ok) {
-          console.error('Server error:', response.status, response.statusText)
-          return
-        }
-
-        const data = await response.json()
-
+        // Try up to 5 times with exponential backoff
+        let retryCount = 0;
+        let response;
+        let data;
         
-        setTranscript(data.transcript || [])
+        while (retryCount < 5) {
+          console.log("sending get transcript request to backend")
+          response = await fetch('https://qczitkftpjbnvyrydrtpujruu40mxarz.lambda-url.us-east-1.on.aws', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: youtubeUrl,
+            }),
+          })
+          
+          if (!response.ok) {
+            // Only retry on 502 Bad Gateway
+            if (response.status === 502 && retryCount < 4) {
+              const delay = 1000 * Math.pow(2, retryCount); // 1s, 2s, 4s
+              console.log(`Retry ${retryCount + 1}/5 after ${delay}ms delay...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              retryCount++;
+              continue;
+            }
+            console.error('Server error:', response.status, response.statusText);
+            return;
+          }
+          
+          data = await response.json();
+          break; // Success, exit retry loop
+        }
+        
+        setTranscript(data?.transcript || [])
       } catch (error) {
         console.error('Error fetching transcript:', error)
       }
@@ -189,7 +206,6 @@ export default function TranscriptPage() {
                     height: '100%',
                     playerVars: {
                       autoplay: 0,
-                      playsinline: 1,
                     },
                   }}
                   className="w-full aspect-video"
@@ -278,7 +294,7 @@ export default function TranscriptPage() {
               </div>
             </div>
             
-            <div id="content-view-container" className="p-4 lg:p-6 h-screen overflow-y-auto">
+            <div id="content-view-container" className="p-4 lg:p-6 h-[calc(100vh-200px)] overflow-y-auto">
               {currentView === 'transcript' ? (
                 <TranscriptContent
                   transcript={transcript}

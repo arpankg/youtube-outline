@@ -6,6 +6,7 @@ Extends the default Supabase auth.users table with user tier information.
 ### Schema
 - id: uuid (references auth.users, primary key)
 - tier: text (default: 'free')
+- watched_videos: jsonb (default: '[]') - Array of watched video objects containing video_id, thumbnail, title, and watch_date
 - created_at: timestamp with time zone
 - updated_at: timestamp with time zone
 

@@ -2,6 +2,7 @@
 create table public.profiles (
   id uuid references auth.users on delete cascade primary key,
   tier text default 'free',
+  watched_videos jsonb default '[]'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
@@ -13,6 +14,12 @@ alter table public.profiles enable row level security;
 create policy "Users can read own profile"
   on public.profiles for select
   using ( auth.uid() = id );
+
+-- Create policy for updating own watched videos
+create policy "Users can update own watched videos"
+  on public.profiles for update
+  using ( auth.uid() = id )
+  with check ( auth.uid() = id );
 
 -- Create trigger for updated_at
 create or replace function update_updated_at_column()

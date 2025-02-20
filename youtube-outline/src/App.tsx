@@ -5,6 +5,8 @@ import TranscriptPage from './pages/TranscriptPage'
 import { SignInPage } from './pages/SignInPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { UpgradePage } from './pages/UpgradePage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { TermsPage } from './pages/TermsPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function AppRoutes() {
@@ -14,10 +16,13 @@ function AppRoutes() {
   return (
     <ViewsProvider>
       <Routes>
-        <Route path="/" element={session ? <DashboardPage /> : <HomePage />} />
+        <Route path="/" element={session ? <Navigate to="/dashboard" /> : <HomePage />} />
+        <Route path="/dashboard" element={session ? <DashboardPage /> : <Navigate to="/signin" />} />
         <Route path="/watch" element={<TranscriptPage />} />
-        <Route path="/signin" element={session ? <Navigate to="/" /> : <SignInPage />} />
+        <Route path="/signin" element={session ? <Navigate to="/dashboard" /> : <SignInPage />} />
         <Route path="/upgrade" element={<UpgradePage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Routes>
     </ViewsProvider>
   )

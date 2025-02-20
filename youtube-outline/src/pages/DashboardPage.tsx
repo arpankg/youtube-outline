@@ -1,13 +1,46 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { FeaturedSummaries } from '../components/FeaturedSummaries'
 import { useAuth } from '../contexts/AuthContext'
 
+type WatchedVideo = {
+  video_id: string
+  thumbnail: string
+  title: string
+  watch_date: string
+}
+
 export const DashboardPage = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [watchedVideos, setWatchedVideos] = useState<WatchedVideo[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const { session } = useAuth()
+
+  useEffect(() => {
+    const fetchWatchHistory = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const { data: profile, error: dbError } = await supabase
+          .from('profiles')
+          .select('watched_videos')
+          .single()
+
+        if (dbError) throw dbError
+        setWatchedVideos(profile?.watched_videos || [])
+      } catch (e) {
+        console.error('Error fetching watch history:', e)
+        setError('Failed to load watch history')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchWatchHistory()
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -73,6 +106,43 @@ export const DashboardPage = () => {
                 Generate Outline
               </button>
             </form>
+
+            {error && (
+              <div className="rounded-lg bg-red-100 p-4 text-red-700">
+                {error}
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="flex justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              </div>
+            ) : watchedVideos.length > 0 ? (
+              <div className="mt-8">
+                <h2 className="mb-4 text-xl font-semibold">Recently Watched</h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {watchedVideos.slice(0, 12).map((video) => (
+                    <div
+                      key={video.video_id}
+                      onClick={() => navigate(`/watch?v=${video.video_id}`)}
+                      className="cursor-pointer overflow-hidden rounded-lg border border-gray-200 transition-all hover:opacity-80"
+                    >
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="aspect-video w-full object-cover"
+                      />
+                      <div className="p-3">
+                        <h3 className="line-clamp-2 font-medium">{video.title}</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {new Date(video.watch_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* Right side - Featured Summaries */}

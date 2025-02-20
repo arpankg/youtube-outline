@@ -24,12 +24,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null)
   
   useEffect(() => {
+    console.log('[AuthContext] Setting up auth listeners...');
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('[AuthContext] Initial session check:', { session, error });
+      setSession(session);
+    })
     
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setSession(session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthContext] Auth state changed:', { 
+        event, 
+        session,
+        user: session?.user,
+        accessToken: session?.access_token ? 'present' : 'missing'
+      });
+      setSession(session);
     })
     
     return () => subscription.unsubscribe()

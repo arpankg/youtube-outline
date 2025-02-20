@@ -2,13 +2,27 @@ import { supabase } from '../utils/supabase'
 
 export const SignInPage = () => {
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`
+    console.log('[SignInPage] Starting Google OAuth...', {
+      currentUrl: window.location.href,
+      redirectUrl: `${window.location.origin}/dashboard`
+    });
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      })
+
+      if (error) {
+        console.error('[SignInPage] OAuth error:', error);
+      } else {
+        console.log('[SignInPage] OAuth initiated:', data);
       }
-    })
-    if (error) console.error('Error:', error.message)
+    } catch (e) {
+      console.error('[SignInPage] Unexpected error:', e);
+    }
   }
 
   return (

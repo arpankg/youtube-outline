@@ -11,7 +11,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function AppRoutes() {
   const { session } = useAuth()
-  console.log('[App] Rendering', { session })
+  console.log('[App] Rendering routes:', { 
+    session: session ? {
+      user: session.user.email,
+      accessToken: session.access_token ? 'present' : 'missing',
+      expiresAt: session.expires_at
+    } : null,
+    currentPath: window.location.pathname
+  })
   
   return (
     <ViewsProvider>

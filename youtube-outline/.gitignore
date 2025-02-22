@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 
 # Python FastAPI Server
+**/venv/
+**/.env
 .env
 .env.production
 fastapi-venv/

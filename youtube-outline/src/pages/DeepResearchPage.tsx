@@ -4,6 +4,28 @@ import { connectDeepResearch, processStreamResult } from '../utils/deepResearch'
 import { ShowNote } from '../types/deepResearch';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 
+interface StatusWindowProps {
+  messages: string[];
+}
+
+const StatusWindow: React.FC<StatusWindowProps> = ({ messages }) => {
+  return (
+    <div className="w-full max-w-2xl mx-auto rounded-lg border border-gray-200">
+      <div className="p-4 border-b border-gray-200">
+        <h3 className="text-lg font-semibold">DeepSearch</h3>
+      </div>
+      <div className="h-[300px] overflow-y-auto p-4 space-y-2">
+        {messages.map((message, index) => (
+          <div key={index} className="flex items-start space-x-2">
+            <span>•</span>
+            <span>{message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function DeepResearchPage() {
   const [inputUrl, setInputUrl] = useState('');
   const [statusMessages, setStatusMessages] = useState<string[]>([]);
@@ -45,6 +67,7 @@ export default function DeepResearchPage() {
               setShowNotes(result.data.show_notes);
             }
             setStatusMessages(prev => [...prev, 'Analysis complete!']);
+            setIsLoading(false);
             break;
           case 'error':
             console.error('Error:', result);
@@ -99,12 +122,8 @@ export default function DeepResearchPage() {
       )}
 
       {statusMessages.length > 0 && (
-        <div className="mb-4 space-y-2">
-          {statusMessages.map((msg, i) => (
-            <div key={i} className="p-2 bg-blue-100 text-blue-700 rounded">
-              {msg}
-            </div>
-          ))}
+        <div className="my-8">
+          <StatusWindow messages={statusMessages} />
         </div>
       )}
 

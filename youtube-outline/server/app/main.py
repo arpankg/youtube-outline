@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api import TranscriptsDisabled, NoTranscriptFound
@@ -226,9 +226,31 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-@app.post("/deep-research")
-async def deep_research(request: DeepResearchRequest):
-    return await process_deep_research(request.url)
+@app.websocket("/ws/deep-research")
+async def websocket_deep_research(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        data = await websocket.receive_json()
+        url = data.get('url')
+        if not url:
+            await websocket.send_json({
+                "type": "error",
+                "data": {"message": "URL is required"}
+            })
+            return
+
+        # Process with direct WebSocket communication
+        print(f"[DEBUG] Calling process_deep_research with URL: {url}")
+        await process_deep_research(url, websocket)
+
+    except WebSocketDisconnect:
+        print(f"Client disconnected")
+    except Exception as e:
+        print(f"Error in websocket: {str(e)}")
+        await websocket.send_json({
+            "type": "error",
+            "data": {"message": str(e)}
+        })
 
 @app.post("/chat")
 async def chat(request: dict):

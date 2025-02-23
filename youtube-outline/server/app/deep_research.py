@@ -3,9 +3,10 @@ import time
 import math
 import random
 import requests
+from fastapi import WebSocket
 import os
 import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ from fastapi.responses import StreamingResponse
 
 # Load environment variables from .env file
 load_dotenv()
+
+
 
 def retry_with_backoff(retries=10, backoff_in_seconds=1):
     def decorator(func):
@@ -38,11 +41,27 @@ if not OPENAI_API_KEY:
 
 TRANSCRIPT_LAMBDA_URL = 'https://qczitkftpjbnvyrydrtpujruu40mxarz.lambda-url.us-east-1.on.aws'
 
+class StatusDetails(BaseModel):
+    stage: str
+    message: str
+    details: Dict[str, Any]
+
+def create_status_message(stage: str, message: str, details: Dict[str, Any] = None) -> Dict:
+    return {
+        "type": "status",
+        "data": StatusDetails(
+            stage=stage,
+            message=message,
+            details=details or {}
+        ).dict()
+    }
+
 class ShowNoteItem(BaseModel):
     name: str  # The entity name
     search_query: str  # Google search query to find more info
     context: str  # Context where the entity was mentioned
     timestamp: str  # Timestamp from the transcript where this is discussed
+    url: Optional[str] = None  # URL to additional information about this item
 
 class UrlSelection(BaseModel):
     selected_url: str
@@ -122,9 +141,22 @@ def calculate_target_segments(total_duration: float) -> int:
     minutes = total_duration / 60
     return min(30, max(5, math.floor(math.sqrt(minutes) * 2)))
 
-def split_transcript(transcript_entries: List[dict], target_segments: int = 5) -> List[List[dict]]:
+async def split_transcript(transcript_entries: List[dict], target_segments: int = 5, websocket: WebSocket = None) -> List[List[dict]]:
     """Split transcript into roughly equal time segments."""
+    if websocket:
+        await websocket.send_json(create_status_message(
+            stage="splitting_transcript",
+            message="Splitting transcript into segments...",
+            details={"target_segments": target_segments}
+        ))
+    
     if not transcript_entries:
+        if websocket:
+            await websocket.send_json(create_status_message(
+                stage="segments_created",
+                message="No transcript entries to split",
+                details={"segment_count": 0}
+            ))
         return []
         
     # Calculate total duration
@@ -149,11 +181,36 @@ def split_transcript(transcript_entries: List[dict], target_segments: int = 5) -
     if current_segment:
         segments.append(current_segment)
     
+    if websocket:
+        await websocket.send_json(create_status_message(
+            stage="segments_created",
+            message=f"Split transcript into {len(segments)} segments",
+            details={
+                "segment_count": len(segments),
+                "segments": [
+                    {
+                        "start_time": segment[0]["start"],
+                        "end_time": segment[-1]["start"],
+                        "word_count": sum(len(entry["text"].split()) for entry in segment)
+                    }
+                    for segment in segments
+                ]
+            }
+        ))
     return segments
 
-async def process_segment(segment: List[dict], i: int, segments: List[List[dict]], llm: ChatOpenAI) -> List[ShowNoteItem]:
+async def process_segment(segment: List[dict], i: int, segments: List[List[dict]], llm: ChatOpenAI, websocket: WebSocket) -> List[ShowNoteItem]:
     """Process a single transcript segment for deep research with NER analysis."""
-    print(f"\n[Segment {i+1}] Processing...")
+    await websocket.send_json(create_status_message(
+        stage="segment_start",
+        message=f"Processing segment {i+1}/{len(segments)}",
+        details={
+            "segment": i+1,
+            "total_segments": len(segments),
+            "start_time": segment[0]["start"],
+            "end_time": segment[-1]["start"]
+        }
+    ))
     
     # Convert segment to text
     segment_text = " ".join([f"[{entry['start']}s] {entry['text']}" for entry in segment])
@@ -162,8 +219,23 @@ async def process_segment(segment: List[dict], i: int, segments: List[List[dict]
     chain = llm.with_structured_output(ShowNoteList)
     
     # Get OpenAI analysis
+    await websocket.send_json(create_status_message(
+        stage="gpt_analysis",
+        message=f"Analyzing segment {i+1} content...",
+        details={"segment": i+1}
+    ))
+    
     try:
         result = await chain.ainvoke(DEEP_RESEARCH_PROMPT.format(text_content=segment_text))
+        
+        await websocket.send_json(create_status_message(
+            stage="topics_found",
+            message=f"Found {len(result.items)} topics in segment {i+1}",
+            details={
+                "segment": i+1,
+                "topics": [note.name for note in result.items]
+            }
+        ))
     except Exception as e:
         print(f"[DEBUG] LLM error: {str(e)}")
         print(f"[DEBUG] Error type: {type(e)}")
@@ -173,8 +245,18 @@ async def process_segment(segment: List[dict], i: int, segments: List[List[dict]
     print(f"\n[Segment {i+1}] Show Notes:")
     print("=" * 50)
     try:
+        processed_notes = []
         for note in result.items:
             # Search and add URL first
+            await websocket.send_json(create_status_message(
+                stage="url_search",
+                message=f"Searching for sources about: {note.name}",
+                details={
+                    "topic": note.name,
+                    "segment": i+1
+                }
+            ))
+            
             urls = search_google(note.search_query)
             selected_url = None
             if urls:
@@ -185,106 +267,169 @@ async def process_segment(segment: List[dict], i: int, segments: List[List[dict]
                     name=note.name,
                     llm=llm
                 )
-                if selected_url:
-                    note.dict()['url'] = selected_url
+
+            # Create new ShowNoteItem with all data including URL
+            processed_note = ShowNoteItem(
+                name=note.name,
+                search_query=note.search_query,
+                context=note.context,
+                timestamp=note.timestamp,
+                url=selected_url
+            )
+            processed_notes.append(processed_note)
 
             # Print all information together
-            formatted_note = f"""Name: {note.name}
-Search Query: {note.search_query}
-Context: {note.context}
-Timestamp: {note.timestamp}
-URL: {selected_url if selected_url else 'No URL found'}
+            formatted_note = f"""Name: {processed_note.name}
+Search Query: {processed_note.search_query}
+Context: {processed_note.context}
+Timestamp: {processed_note.timestamp}
+URL: {processed_note.url if processed_note.url else 'No URL found'}
 {'-' * 30}"""
             print(formatted_note)
     except Exception as e:
         print(f"[DEBUG] Error accessing show_notes: {str(e)}")
         raise
     
-    return result.items
+    return processed_notes
 
-async def get_transcript(url: str):
+async def get_transcript(url: str, websocket: WebSocket):
     """Get transcript from the transcript lambda function with retries."""
     retry_count = 0
     max_retries = 5
+    print(f"[DEBUG] Starting transcript retrieval for URL: {url}")
 
     while retry_count < max_retries:
         try:
-            yield {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'type': 'status',
-                    'data': {'message': f'Fetching transcript (attempt {retry_count + 1}/{max_retries})'}
-                })
-            }
+            print(f"[DEBUG] Attempt {retry_count + 1}/{max_retries} to get transcript")
             
+            print(f"[DEBUG] Making POST request to {TRANSCRIPT_LAMBDA_URL}")
             response = requests.post(
                 TRANSCRIPT_LAMBDA_URL,
                 json={"url": url},
                 headers={"Content-Type": "application/json"}
             )
+            print(f"[DEBUG] Response status code: {response.status_code}")
+            print(f"[DEBUG] Response headers: {response.headers}")
+            print(f"[DEBUG] Response content: {response.text[:500]}...")
             
             if response.status_code == 502 and retry_count < max_retries - 1:
                 delay = 1000 * (2 ** retry_count) / 1000  # Convert to seconds
-                yield {
-                    'statusCode': 200,
-                    'body': json.dumps({
-                        'type': 'status',
-                        'data': {'message': f'Retrying transcript fetch in {delay:.1f}s ({retry_count + 1}/{max_retries})'}
-                    })
-                }
+                print(f"[DEBUG] Got 502 error, will retry in {delay} seconds")
+                await websocket.send_json({
+                    'type': 'status',
+                    'data': {'message': f'Retrying transcript fetch in {delay:.1f}s ({retry_count + 1}/{max_retries})'}
+                })
                 time.sleep(delay)
                 retry_count += 1
                 continue
 
             response.raise_for_status()
-            yield response.json()
-            break
+            response_json = response.json()
+            print(f"[DEBUG] Successfully parsed response JSON: {str(response_json)[:500]}...")
+            # Only print first 100 chars of transcript for debugging
+            preview = str(response_json)[:100] + '...' if len(str(response_json)) > 100 else str(response_json)
+            print(f"[DEBUG] Server sending response: {preview}")
+            return response_json
 
         except requests.exceptions.RequestException as e:
+            print(f"[DEBUG] Request exception: {type(e).__name__}: {str(e)}")
             if retry_count == max_retries - 1:
-                raise Exception(f"Failed to get transcript after {max_retries} attempts: {str(e)}")
+                print(f"[DEBUG] Max retries ({max_retries}) reached, raising error")
+                await websocket.send_json({
+                    'type': 'error',
+                    'data': {'error': f"Failed to get transcript after {max_retries} attempts: {str(e)}"}
+                })
+                return None
             retry_count += 1
             delay = 1000 * (2 ** retry_count) / 1000
+            print(f"[DEBUG] Will retry in {delay} seconds")
             time.sleep(delay)
+    
+    return None
 
-async def process_deep_research(url: str):
-    """Process YouTube video transcript with streaming response for FastAPI."""
-    async def generate():
+async def process_deep_research(url: str, websocket: WebSocket):
+    """Process YouTube video transcript with WebSocket response."""
+    print(f"[DEBUG] Entering process_deep_research with URL: {url}")
+    try:
+        message = create_status_message(
+            stage="started",
+            message="Starting deep research process",
+            details={"url": url}
+        )
+        print(f"[DEBUG] Server sending message: {message}")
+        await websocket.send_json(message)
         try:
             # Get transcript with status updates
-            transcript = None
-            async for status in get_transcript(url):
-                if isinstance(status, dict) and 'statusCode' in status:
-                    yield json.dumps(json.loads(status['body'])) + '\n'
-                else:
-                    transcript = status
-                    break
-            
-            if not transcript:
-                transcript = await get_transcript(url).__anext__()
-                
-            transcript_entries = transcript.get('transcript', [])
-            
-            if not transcript_entries:
-                yield json.dumps({'type': 'error', 'data': {'error': 'No transcript found'}}) + '\n'
+            print(f"[DEBUG] Starting transcript retrieval in process_deep_research for URL: {url}")
+            await websocket.send_json({
+                "type": "status",
+                "data": {
+                    "stage": "transcript_request",
+                    "message": "Retrieving transcript from YouTube...",
+                    "details": {"url": url}
+                }
+            })
+            # Get transcript directly
+            transcript = await get_transcript(url, websocket)
+            if transcript is None:
+                print(f"[DEBUG] Failed to get transcript")
                 return
             
-            yield json.dumps({'type': 'status', 'data': {'message': 'Preparing transcript segments'}}) + '\n'
+            if not isinstance(transcript, dict):
+                print(f"[DEBUG] Invalid transcript format")
+                await websocket.send_json({
+                    'type': 'error',
+                    'data': {'error': 'Invalid transcript format'}
+                })
+                return
             
+            # Extract transcript entries
+            transcript_entries = transcript.get('transcript')
+            if not transcript_entries:
+                print(f"[DEBUG] No transcript entries found")
+                await websocket.send_json({
+                    'type': 'error',
+                    'data': {'error': 'No transcript entries found'}
+                })
+                return
+            print(f"[DEBUG] Got transcript with {len(transcript_entries)} entries")
+            await websocket.send_json(create_status_message(
+                stage="transcript_retrieved",
+                message="Successfully retrieved transcript",
+                details={
+                    "url": url,
+                    "entries": len(transcript_entries)
+                }
+            ))
+
             # Calculate number of segments
             last_entry = transcript_entries[-1]
             total_duration = last_entry['start'] + last_entry.get('duration', 0)
             target_segments = calculate_target_segments(total_duration)
             
-            # Split transcript into segments
-            segments = split_transcript(transcript_entries, target_segments)
+            message = create_status_message(
+                stage="segments_calculating",
+                message="Calculating optimal segments",
+                details={"total_duration": total_duration}
+            )
+            print(f"[DEBUG] Server sending message: {json.dumps(message)}")
+            await websocket.send_json(message)
             
-            yield json.dumps({'type': 'status', 'data': {'message': 'Starting segment analysis'}}) + '\n'
+            # Split transcript into segments
+            segments = await split_transcript(transcript_entries, target_segments, websocket)
+            
+            message = create_status_message(
+                stage="analysis_starting",
+                message="Starting deep research analysis",
+                details={"total_segments": len(segments)}
+            )
+            print(f"[DEBUG] Server sending message: {json.dumps(message)}")
+            await websocket.send_json(message)
             
             # Initialize OpenAI client and create tasks
             llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY, model_name='gpt-4o')
             segment_tasks = [
-                process_segment(segment, i, segments, llm)
+                process_segment(segment, i, segments, llm, websocket)
                 for i, segment in enumerate(segments)
             ]
             
@@ -296,28 +441,56 @@ async def process_deep_research(url: str):
                 all_show_notes.extend(segment_notes)
                 
                 # Stream each segment result
-                yield json.dumps({
+                result = {
                     'type': 'segment_result',
                     'data': {
                         'show_notes': [note.dict() for note in segment_notes]
                     }
-                }) + '\n'
+                }
+                print(f"[DEBUG] Server yielding segment result: {json.dumps(result)}")
+                await websocket.send_json(result)
             
-            # Final complete response
-            yield json.dumps({
+            # Signal completion
+            message = create_status_message(
+                stage="complete",
+                message="Deep research complete",
+                details={
+                    "total_segments": len(segments),
+                    "total_topics": len(all_show_notes)
+                }
+            )
+            print(f"[DEBUG] Server yielding message: {json.dumps(message)}")
+            await websocket.send_json(message)
+            
+            # Final complete response with all notes
+            result = {
                 'type': 'complete',
                 'data': {
                     'show_notes': [note.dict() for note in all_show_notes]
                 }
-            }) + '\n'
+            }
+            print(f"[DEBUG] Server yielding final result: {json.dumps(result)}")
+            await websocket.send_json(result)
             
         except Exception as e:
-            yield json.dumps({
-                'type': 'error',
-                'data': {'error': str(e)}
-            }) + '\n'
+            message = create_status_message(
+                stage="error",
+                message="An error occurred",
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
+            )
+            print(f"[DEBUG] Server yielding error message: {json.dumps(message)}")
+            await websocket.send_json(message)
 
-    return StreamingResponse(
-        generate(),
-        media_type='text/event-stream'
-    )
+    except Exception as e:
+        error_message = create_status_message(
+            stage="error",
+            message="An error occurred",
+            details={
+                "error": str(e),
+                "error_type": type(e).__name__
+            }
+        )
+        await websocket.send_json(error_message)

@@ -14,6 +14,7 @@ from pprint import pformat
 from .rag.vector_db import VectorDB
 from .chat_transcript import generate_chat_response
 from .quiz_generator import generate_quiz_questions, QuizGenerationRequest
+from .deep_research import process_deep_research
 import asyncio
 import boto3
 from botocore.exceptions import ClientError
@@ -46,6 +47,9 @@ s3 = boto3.client('s3',
 from .summary_generator import generate_summary, FinalizedOutlineResponse
 
 class TranscriptRequest(BaseModel):
+    url: str
+
+class DeepResearchRequest(BaseModel):
     url: str
 
 class VectorDBUpload(BaseModel):
@@ -221,6 +225,10 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/deep-research")
+async def deep_research(request: DeepResearchRequest):
+    return await process_deep_research(request.url)
 
 @app.post("/chat")
 async def chat(request: dict):

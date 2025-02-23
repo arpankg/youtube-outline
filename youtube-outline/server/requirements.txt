@@ -16,3 +16,5 @@ langchainhub==0.1.21
 langsmith==0.1.108
 langchain-pinecone==0.1.3
 boto3>=1.34.0
+requests==2.31.0
+google-api-python-client==2.120.0

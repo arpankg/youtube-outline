@@ -90,30 +90,32 @@ export default function DeepResearchPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-        <DocumentTextIcon className="h-8 w-8" />
-        Deep Research
-      </h1>
+      <div className="flex items-center gap-4 mb-8">
+        <h1 className="flex items-center gap-2 text-xl font-bold whitespace-nowrap">
+          <DocumentTextIcon className="h-6 w-6" />
+          Deep Research
+        </h1>
 
-      <form onSubmit={handleSubmit} className="mb-8">
-        <div className="flex gap-4">
-          <input
-            type="text"
-            value={inputUrl}
-            onChange={(e) => setInputUrl(e.target.value)}
-            placeholder="Enter YouTube URL"
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-          >
-            {isLoading ? 'Processing...' : 'Analyze'}
-          </button>
-        </div>
-      </form>
+        <form onSubmit={handleSubmit} className="flex-1">
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={inputUrl}
+              onChange={(e) => setInputUrl(e.target.value)}
+              placeholder="Enter YouTube URL"
+              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-gray-400 whitespace-nowrap"
+            >
+              {isLoading ? 'Processing...' : 'Analyze'}
+            </button>
+          </div>
+        </form>
+      </div>
 
       {error && (
         <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">

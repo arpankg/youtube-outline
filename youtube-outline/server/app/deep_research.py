@@ -9,6 +9,24 @@ import asyncio
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+
+ANALYSIS_MESSAGES = [
+    "Analyzing: {}",
+    "Searching for information on: {}",
+    "Gathering data on: {}",
+    "Investigating details about: {}",
+    "Researching context for: {}",
+    "Exploring topic: {}",
+    "Examining key points about: {}",
+    "Extracting insights about: {}",
+    "Processing information for: {}",
+    "Synthesizing information on: {}",
+    "Compiling research on: {}"
+]
+
+def get_random_analysis_message(topic: str) -> str:
+    template = random.choice(ANALYSIS_MESSAGES)
+    return template.format(topic)
 from dotenv import load_dotenv
 from fastapi.responses import StreamingResponse
 
@@ -83,7 +101,7 @@ For each SIGNIFICANT entity found add them to the show notes in this format
 - Name: Name as mentioned (or corrected if the transcript has an error)
 - Search Query: Write a VERY DETAILED google search query that I can use to search the web and retrieve the URL for the book, the research paper, wikipedia article for the person, etc. Make sure this search query is detailed and includes context on the named entity so that the search results will be specific to that entity mentioned. If necessary, use context from the conversation as well to make this search query as accurate as possible.
 - Context: Write 2 detailed sentences explaining the context of the transcript where this named entity was mentioned.
-- Timestamp: Give the timestamp from the transcript of where this is discussed
+- Timestamp: Give the timestamp in HH:MM:SS format (e.g. 01:23:45) where this entity is discussed in the transcript. Use hours even for videos under an hour (e.g. use 00:05:30 not 5:30). Give the timestamp from the transcript of where this is discussed
 
 Here's the transcript segment:
 {text_content}"""
@@ -117,16 +135,16 @@ async def select_best_url(urls: List[str], query: str, context: str, name: str, 
     if not urls:
         return None
         
-    prompt = f""" You are given a list of URLs from a google search API call where we searched for the search query. I need you to look at the entity name, the context and the search query and pick the single BEST URL that matches the context and the search query.
+    prompt = f""" You are given a list of URLs from a google search API call where we searched for the search query. I need you to look at the entity name, the context and the search query and pick the most relevant URL that matches the context and the search query.
 
-Entity Name: {name}
-Context: {context}
-Search Query Used: {query}
+    Entity Name: {name}
+    Context: {context}
+    Search Query Used: {query}
 
-URLs:
-{chr(10).join(f'- {url}' for url in urls)}
+    URLs:
+    {chr(10).join(f'- {url}' for url in urls)}
 
-Select the single most relevant URL from the list above."""
+    Select the single most relevant URL from the list above."""
 
     chain = llm.with_structured_output(UrlSelection)
     try:
@@ -250,7 +268,7 @@ async def process_segment(segment: List[dict], i: int, segments: List[List[dict]
             # Search and add URL first
             await websocket.send_json(create_status_message(
                 stage="url_search",
-                message=f"Searching for sources about: {note.name}",
+                message=get_random_analysis_message(note.name),
                 details={
                     "topic": note.name,
                     "segment": i+1
@@ -353,7 +371,7 @@ async def process_deep_research(url: str, websocket: WebSocket):
     try:
         message = create_status_message(
             stage="started",
-            message="Starting deep research process",
+            message="Querying YouTube API",
             details={"url": url}
         )
         print(f"[DEBUG] Server sending message: {message}")

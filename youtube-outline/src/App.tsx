@@ -8,6 +8,7 @@ import { UpgradePage } from './pages/UpgradePage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
 import DeepResearchPage from './pages/DeepResearchPage'
+import AuthCallback from './pages/AuthCallback'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function AppRoutes() {
@@ -32,6 +33,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/deep-research" element={<DeepResearchPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
       </Routes>
     </ViewsProvider>
   )

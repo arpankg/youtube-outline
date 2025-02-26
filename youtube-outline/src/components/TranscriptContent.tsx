@@ -92,8 +92,6 @@ const TranscriptContent = forwardRef(function TranscriptContent(
               const element = segmentElementsRef.current[activeSegmentRef.current];
               element?.classList.add('text-red-500');
               if (autoScrollEnabledRef.current) {
-                console.log('Auto-scrolling to element, autoScrollEnabled:', autoScrollEnabledRef.current);
-                console.log('Initiating auto-scroll at:', Date.now());
                 element?.scrollIntoView({ behavior: 'auto', block: 'center' });
                 // Update observer to watch new highlighted element
                 observerRef.current?.disconnect();
